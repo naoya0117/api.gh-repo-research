@@ -1,0 +1,19 @@
+FROM golang:1.25-bookworm
+
+ARG UID=1000
+ARG GID=1000
+
+RUN (getent passwd ${UID} && /usr/sbin/userdel -r $(getent passwd ${UID} | cut -d: -f1) || true) && \
+  (getent group ${GID} || /usr/sbin/groupadd -g ${GID} nonroot) && \
+  /usr/sbin/useradd -u ${UID} -g ${GID} -m -s /bin/bash nonroot
+
+RUN go install github.com/air-verse/air@v1.63
+
+USER nonroot
+ENV GOPATH=/home/nonroot/go
+
+WORKDIR /app
+
+EXPOSE 8080
+
+CMD ["air", "-c", ".air.toml"]
