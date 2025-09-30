@@ -1,4 +1,4 @@
-module gh-repo-research-api
+module github.com/naoya0117/shuron2025/api
 
 go 1.25.1
 

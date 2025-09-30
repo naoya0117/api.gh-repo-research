@@ -1,11 +1,12 @@
 package main
 
 import (
-	"gh-repo-research-api/graph"
-	"gh-repo-research-api/internal/database"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/naoya0117/shuron2025/api/graph"
+	"github.com/naoya0117/shuron2025/api/internal/database"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"

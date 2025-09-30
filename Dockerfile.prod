@@ -10,7 +10,8 @@ COPY . .
 
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o main ./cmd/${PACKAGE_NAME}/.
 
-FROM scratch
+# 内部でgemini-cliを利用するため，nodeのイメージを利用
+FROM node:24.9-bookworm-slim
 
 # バイナリを配置
 COPY --from=builder /app/main /go-bin/main

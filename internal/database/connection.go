@@ -13,33 +13,43 @@ type DB struct {
 }
 
 func NewConnection() (*DB, error) {
-	host := os.Getenv("DB_HOST")
-	if host == "" {
-		host = "localhost"
-	}
+	return Connect("")
+}
 
-	port := os.Getenv("DB_PORT")
-	if port == "" {
-		port = "5432"
-	}
+func Connect(dbURL string) (*DB, error) {
+	var dsn string
+	
+	if dbURL != "" {
+		dsn = dbURL
+	} else {
+		host := os.Getenv("DB_HOST")
+		if host == "" {
+			host = "localhost"
+		}
 
-	user := os.Getenv("DB_USER")
-	if user == "" {
-		user = "user"
-	}
+		port := os.Getenv("DB_PORT")
+		if port == "" {
+			port = "5432"
+		}
 
-	password := os.Getenv("DB_PASSWORD")
-	if password == "" {
-		password = "password"
-	}
+		user := os.Getenv("DB_USER")
+		if user == "" {
+			user = "user"
+		}
 
-	dbname := os.Getenv("DB_NAME")
-	if dbname == "" {
-		dbname = "gh-repo-research"
-	}
+		password := os.Getenv("DB_PASSWORD")
+		if password == "" {
+			password = "password"
+		}
 
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
+		dbname := os.Getenv("DB_NAME")
+		if dbname == "" {
+			dbname = "gh-repo-research"
+		}
+
+		dsn = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+			host, port, user, password, dbname)
+	}
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {

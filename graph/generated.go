@@ -8,10 +8,11 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"gh-repo-research-api/graph/model"
 	"strconv"
 	"sync"
 	"sync/atomic"
+
+	"github.com/naoya0117/shuron2025/api/graph/model"
 
 	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/introspection"

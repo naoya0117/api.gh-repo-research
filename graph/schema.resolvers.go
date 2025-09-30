@@ -7,7 +7,8 @@ package graph
 import (
 	"context"
 	"fmt"
-	"gh-repo-research-api/graph/model"
+
+	"github.com/naoya0117/shuron2025/api/graph/model"
 )
 
 // CreateTodo is the resolver for the createTodo field.

@@ -9,6 +9,12 @@ RUN (getent passwd ${UID} && /usr/sbin/userdel -r $(getent passwd ${UID} | cut -
 
 RUN go install github.com/air-verse/air@v1.63
 
+# nodeの環境をインストール
+RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
+&& apt-get update \
+&& apt-get install -y --no-install-recommends nodejs \
+&& rm -rf /var/lib/apt/lists/*
+
 USER nonroot
 ENV GOPATH=/home/nonroot/go
 

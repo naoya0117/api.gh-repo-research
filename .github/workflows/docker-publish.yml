@@ -22,9 +22,6 @@ jobs:
           - service: server
             build_arg_name: PACKAGE_NAME
             build_arg_value: server
-          - service: collect_github_repos
-            build_arg_name: PACKAGE_NAME
-            build_arg_value: collect_github_repos
       # 失敗時も他のイメージをビルド続行
       fail-fast: false
     

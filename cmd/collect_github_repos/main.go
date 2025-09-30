@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"gh-repo-research-api/internal/database"
-	"gh-repo-research-api/internal/github"
+	"github.com/naoya0117/shuron2025/api/internal/database"
+	"github.com/naoya0117/shuron2025/api/internal/github"
 
 	"github.com/google/uuid"
 )
@@ -102,7 +102,7 @@ func main() {
 		}
 
 		if state.IsCompleted {
-			fmt.Printf("Search session '%s' is already completed (%d repositories fetched).\n", 
+			fmt.Printf("Search session '%s' is already completed (%d repositories fetched).\n",
 				*sessionID, state.TotalFetched)
 			return
 		}
@@ -151,7 +151,7 @@ func main() {
 		result, err := client.GetNextRepositories(ctx, currentCursor)
 		if err != nil {
 			log.Printf("Failed to search repositories: %v", err)
-			
+
 			// Save current state before exit
 			state := database.SearchState{
 				SessionID:     currentSessionID,
@@ -163,7 +163,7 @@ func main() {
 			if saveErr := db.SaveSearchState(state); saveErr != nil {
 				log.Printf("Failed to save search state: %v", saveErr)
 			}
-			
+
 			log.Fatalf("Search failed. State saved. You can resume with: --session=%s", currentSessionID)
 		}
 
@@ -208,7 +208,7 @@ func main() {
 			if hasDockerfile {
 				status = " [HAS DOCKERFILE]"
 			}
-			
+
 			language := "Unknown"
 			if repo.PrimaryLanguage != nil {
 				language = repo.PrimaryLanguage.Name
@@ -236,7 +236,7 @@ func main() {
 		}
 
 		fmt.Printf("Progress: %d repositories fetched (session: %s)\n\n", totalFetched, currentSessionID)
-		
+
 		// Check if we should stop
 		if !result.PageInfo.HasNextPage {
 			fmt.Println("🎉 Collection completed! All repositories have been fetched.")
@@ -251,7 +251,7 @@ func main() {
 		// Check max limit
 		if *maxRepos > 0 && totalFetched >= *maxRepos {
 			fmt.Printf("🛑 Reached maximum limit of %d repositories.\n", *maxRepos)
-			
+
 			// Mark as completed since we reached the user-defined limit
 			state.IsCompleted = true
 			if err := db.SaveSearchState(state); err != nil {
@@ -265,7 +265,7 @@ func main() {
 	}
 
 	fmt.Printf("\n✅ Session %s finished. Total repositories collected: %d\n", currentSessionID, totalFetched)
-	
+
 	// Show how to resume if interrupted
 	if !(*maxRepos > 0 && totalFetched >= *maxRepos) {
 		fmt.Printf("💡 To resume this search later, use: --session=%s\n", currentSessionID)
