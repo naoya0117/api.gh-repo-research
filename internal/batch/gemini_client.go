@@ -59,7 +59,7 @@ func (gc *GeminiClient) CheckAuthentication() error {
 }
 
 func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQuery) (string, error) {
-	promptFile, err := gc.createPromptFile(repoPath, query)
+	promptFile, err := gc.createPromptFile(query)
 	if err != nil {
 		return "", err
 	}
@@ -127,27 +127,32 @@ func (gc *GeminiClient) isRateLimitError(err error) bool {
 	return false
 }
 
-func (gc *GeminiClient) createPromptFile(repoPath string, query database.CheckQuery) (string, error) {
-	repoContent, err := gc.collectRepositoryContent(repoPath)
-	if err != nil {
-		return "", err
-	}
-	
+func (gc *GeminiClient) createPromptFile(query database.CheckQuery) (string, error) {
 	description := ""
 	if query.Description != nil {
 		description = *query.Description
 	}
 	
-	prompt := fmt.Sprintf(`チェック項目: %s
-説明: %s
+	prompt := fmt.Sprintf(`あなたは経験豊富なソフトウェアエンジニアです。このGitリポジトリを分析してください。
 
-質問: %s
-
-対象リポジトリの構造と主要ファイル:
+【分析項目】
 %s
 
-上記の情報に基づいて分析してください。
-`, query.Name, description, query.QueryTemplate, repoContent)
+【詳細説明】
+%s
+
+【分析指示】
+%s
+
+【出力形式】
+以下の形式で回答してください：
+- 評価結果: [良好/要改善/問題あり]
+- 主要な発見事項: (箇条書きで3-5点)
+- 推奨される改善点: (具体的な提案)
+- 総合評価: (1-5段階評価と理由)
+
+リポジトリ全体を確認し、具体的で実用的な分析を提供してください。
+`, query.Name, description, query.QueryTemplate)
 	
 	tmpFile, err := os.CreateTemp("", "gemini_prompt_*.txt")
 	if err != nil {
@@ -165,86 +170,3 @@ func (gc *GeminiClient) createPromptFile(repoPath string, query database.CheckQu
 	return tmpFile.Name(), nil
 }
 
-func (gc *GeminiClient) collectRepositoryContent(repoPath string) (string, error) {
-	var content strings.Builder
-	
-	content.WriteString("## ディレクトリ構造\n")
-	err := filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil || strings.Contains(path, ".git") {
-			return nil
-		}
-		
-		relPath, _ := filepath.Rel(repoPath, path)
-		if relPath == "." {
-			return nil
-		}
-		
-		if info.IsDir() {
-			content.WriteString(fmt.Sprintf("%s/\n", relPath))
-		} else if gc.isRelevantFile(relPath) {
-			content.WriteString(fmt.Sprintf("%s\n", relPath))
-		}
-		return nil
-	})
-	if err != nil {
-		return "", err
-	}
-	
-	content.WriteString("\n## 主要ファイル内容\n")
-	importantFiles := []string{
-		"README.md", "readme.md", "README.txt",
-		"package.json", "go.mod", "Cargo.toml", "pom.xml",
-		"Dockerfile", "docker-compose.yml", "docker-compose.yaml",
-		"Makefile", "CMakeLists.txt",
-		".github/workflows/*.yml", ".github/workflows/*.yaml",
-	}
-	
-	for _, pattern := range importantFiles {
-		matches, _ := filepath.Glob(filepath.Join(repoPath, pattern))
-		for _, match := range matches {
-			if fileContent, err := gc.readFileContent(match, 1000); err == nil {
-				relPath, _ := filepath.Rel(repoPath, match)
-				content.WriteString(fmt.Sprintf("\n### %s\n```\n%s\n```\n", 
-					relPath, fileContent))
-			}
-		}
-	}
-	
-	return content.String(), nil
-}
-
-func (gc *GeminiClient) isRelevantFile(filename string) bool {
-	relevantExts := []string{
-		".md", ".txt", ".json", ".yml", ".yaml", 
-		".go", ".js", ".ts", ".py", ".java", ".rs", ".c", ".cpp", ".h",
-		"Dockerfile", "Makefile", "LICENSE", ".gitignore",
-	}
-	
-	filename = strings.ToLower(filename)
-	for _, ext := range relevantExts {
-		if strings.HasSuffix(filename, strings.ToLower(ext)) || 
-		   strings.Contains(filename, strings.ToLower(ext)) {
-			return true
-		}
-	}
-	return false
-}
-
-func (gc *GeminiClient) readFileContent(filePath string, maxLines int) (string, error) {
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	
-	if len(content) > 10000 {
-		content = content[:10000]
-	}
-	
-	lines := strings.Split(string(content), "\n")
-	if len(lines) > maxLines {
-		lines = lines[:maxLines]
-		lines = append(lines, "... (truncated)")
-	}
-	
-	return strings.Join(lines, "\n"), nil
-}
