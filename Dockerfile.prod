@@ -17,17 +17,19 @@ ENV TZ=Asia/Tokyo
 
 # CA証明書とgitをインストール
 RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    git \
-    && rm -rf /var/lib/apt/lists/* \
-    && update-ca-certificates
+  ca-certificates \
+  git \
+  && rm -rf /var/lib/apt/lists/* \
+  && update-ca-certificates
+
+RUN useradd -m -u 10000 ${PACKAGE_NAME}
 
 # バイナリを配置
 COPY --from=builder /go-bin/${PACKAGE_NAME} /go-bin/${PACKAGE_NAME}
 
 WORKDIR /go-bin
 # 非特権ユーザで実行
-USER 10000
+USER ${PACKAGE_NAME}
 
 EXPOSE 80
 

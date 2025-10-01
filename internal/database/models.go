@@ -17,14 +17,15 @@ type Repository struct {
 }
 
 type SearchState struct {
-	ID            int       `json:"id"`
-	SessionID     string    `json:"sessionId"`
-	Query         string    `json:"query"`
-	CurrentCursor *string   `json:"currentCursor"`
-	TotalFetched  int       `json:"totalFetched"`
-	IsCompleted   bool      `json:"isCompleted"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	ID              int       `json:"id"`
+	SessionID       string    `json:"sessionId"`
+	Query           string    `json:"query"`
+	CurrentLanguage *string   `json:"currentLanguage"`
+	CurrentCursor   *string   `json:"currentCursor"`
+	TotalFetched    int       `json:"totalFetched"`
+	IsCompleted     bool      `json:"isCompleted"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
 }
 
 func (db *DB) CreateRepositoriesTable() error {
@@ -50,6 +51,7 @@ func (db *DB) CreateSearchStatesTable() error {
 			id SERIAL PRIMARY KEY,
 			session_id VARCHAR(255) UNIQUE NOT NULL,
 			query VARCHAR(500) NOT NULL,
+			current_language VARCHAR(100),
 			current_cursor TEXT,
 			total_fetched INTEGER DEFAULT 0,
 			is_completed BOOLEAN DEFAULT FALSE,
@@ -120,33 +122,36 @@ func (db *DB) GetRepositories(limit, offset int) ([]Repository, error) {
 
 func (db *DB) SaveSearchState(state SearchState) error {
 	query := `
-		INSERT INTO search_states (session_id, query, current_cursor, total_fetched, is_completed)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO search_states (session_id, query, current_language, current_cursor, total_fetched, is_completed)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (session_id) DO UPDATE SET
+			current_language = EXCLUDED.current_language,
 			current_cursor = EXCLUDED.current_cursor,
 			total_fetched = EXCLUDED.total_fetched,
 			is_completed = EXCLUDED.is_completed,
 			updated_at = CURRENT_TIMESTAMP
 	`
-	_, err := db.Exec(query, state.SessionID, state.Query, state.CurrentCursor, state.TotalFetched, state.IsCompleted)
+	_, err := db.Exec(query, state.SessionID, state.Query, state.CurrentLanguage, state.CurrentCursor, state.TotalFetched, state.IsCompleted)
 	return err
 }
 
 func (db *DB) LoadSearchState(sessionID string) (*SearchState, error) {
 	query := `
-		SELECT id, session_id, query, current_cursor, total_fetched, is_completed, created_at, updated_at
+		SELECT id, session_id, query, current_language, current_cursor, total_fetched, is_completed, created_at, updated_at
 		FROM search_states
 		WHERE session_id = $1
 	`
 	row := db.QueryRow(query, sessionID)
 
 	var state SearchState
+	var currentLanguage sql.NullString
 	var currentCursor sql.NullString
 
 	err := row.Scan(
 		&state.ID,
 		&state.SessionID,
 		&state.Query,
+		&currentLanguage,
 		&currentCursor,
 		&state.TotalFetched,
 		&state.IsCompleted,
@@ -160,6 +165,9 @@ func (db *DB) LoadSearchState(sessionID string) (*SearchState, error) {
 		return nil, err
 	}
 
+	if currentLanguage.Valid {
+		state.CurrentLanguage = &currentLanguage.String
+	}
 	if currentCursor.Valid {
 		state.CurrentCursor = &currentCursor.String
 	}
@@ -175,7 +183,7 @@ func (db *DB) DeleteSearchState(sessionID string) error {
 
 func (db *DB) ListSearchStates() ([]SearchState, error) {
 	query := `
-		SELECT id, session_id, query, current_cursor, total_fetched, is_completed, created_at, updated_at
+		SELECT id, session_id, query, current_language, current_cursor, total_fetched, is_completed, created_at, updated_at
 		FROM search_states
 		ORDER BY updated_at DESC
 	`
@@ -188,12 +196,14 @@ func (db *DB) ListSearchStates() ([]SearchState, error) {
 	var states []SearchState
 	for rows.Next() {
 		var state SearchState
+		var currentLanguage sql.NullString
 		var currentCursor sql.NullString
 
 		err := rows.Scan(
 			&state.ID,
 			&state.SessionID,
 			&state.Query,
+			&currentLanguage,
 			&currentCursor,
 			&state.TotalFetched,
 			&state.IsCompleted,
@@ -204,6 +214,9 @@ func (db *DB) ListSearchStates() ([]SearchState, error) {
 			return nil, err
 		}
 
+		if currentLanguage.Valid {
+			state.CurrentLanguage = &currentLanguage.String
+		}
 		if currentCursor.Valid {
 			state.CurrentCursor = &currentCursor.String
 		}

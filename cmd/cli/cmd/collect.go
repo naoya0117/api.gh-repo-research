@@ -99,8 +99,13 @@ func runGitHubCollection() {
 
 	ctx := context.Background()
 	var currentSessionID string
+	var currentLanguage string
+	var currentLanguageIndex int
 	var currentCursor string
 	var totalFetched int
+
+	// Get web application languages
+	languages := github.WebApplicationLanguages
 
 	// Load or create search state
 	if collectSessionID != "" {
@@ -120,6 +125,16 @@ func runGitHubCollection() {
 		}
 
 		currentSessionID = state.SessionID
+		if state.CurrentLanguage != nil {
+			currentLanguage = *state.CurrentLanguage
+			// Find the index of current language
+			for i, lang := range languages {
+				if lang == currentLanguage {
+					currentLanguageIndex = i
+					break
+				}
+			}
+		}
 		if state.CurrentCursor != nil {
 			currentCursor = *state.CurrentCursor
 		}
@@ -128,6 +143,7 @@ func runGitHubCollection() {
 
 		fmt.Printf("Resuming search session: %s\n", currentSessionID)
 		fmt.Printf("Query: %s\n", collectQuery)
+		fmt.Printf("Current language: %s (%d/%d)\n", currentLanguage, currentLanguageIndex+1, len(languages))
 		fmt.Printf("Already fetched: %d repositories\n", totalFetched)
 		if currentCursor != "" {
 			fmt.Printf("Resuming from cursor: %.50s...\n", currentCursor)
@@ -137,16 +153,19 @@ func runGitHubCollection() {
 	} else {
 		// Create new session
 		currentSessionID = uuid.New().String()
+		currentLanguageIndex = 0
+		currentLanguage = languages[0]
 		totalFetched = 0
 		currentCursor = ""
 
 		// Save initial state
 		initialState := database.SearchState{
-			SessionID:     currentSessionID,
-			Query:         collectQuery,
-			CurrentCursor: nil,
-			TotalFetched:  0,
-			IsCompleted:   false,
+			SessionID:       currentSessionID,
+			Query:           collectQuery,
+			CurrentLanguage: &currentLanguage,
+			CurrentCursor:   nil,
+			TotalFetched:    0,
+			IsCompleted:     false,
 		}
 
 		if err := db.SaveSearchState(initialState); err != nil {
@@ -155,53 +174,64 @@ func runGitHubCollection() {
 
 		fmt.Printf("Starting new search session: %s\n", currentSessionID)
 		fmt.Printf("Query: %s\n", collectQuery)
+		fmt.Printf("Languages to process: %v\n", languages)
+		fmt.Printf("Starting with language: %s (%d/%d)\n", currentLanguage, currentLanguageIndex+1, len(languages))
 		fmt.Println()
 	}
 
-	pageCount := 0
-	for {
-		result, err := client.GetNextRepositories(ctx, currentCursor)
-		if err != nil {
-			if github.IsRateLimitError(err) {
-				fmt.Printf("🚫 %v\n", err)
+	// Process all languages
+	for currentLanguageIndex < len(languages) {
+		currentLanguage = languages[currentLanguageIndex]
+		fmt.Printf("\n🔍 Processing language: %s (%d/%d)\n", currentLanguage, currentLanguageIndex+1, len(languages))
+		
+		pageCount := 0
+		languageCompleted := false
+		
+		for !languageCompleted {
+			result, err := client.GetNextRepositoriesWithLanguage(ctx, currentLanguage, currentCursor)
+			if err != nil {
+				if github.IsRateLimitError(err) {
+					fmt.Printf("🚫 %v\n", err)
+					
+					// Save current state before waiting
+					state := database.SearchState{
+						SessionID:       currentSessionID,
+						Query:           collectQuery,
+						CurrentLanguage: &currentLanguage,
+						CurrentCursor:   &currentCursor,
+						TotalFetched:    totalFetched,
+						IsCompleted:     false,
+					}
+					if saveErr := db.SaveSearchState(state); saveErr != nil {
+						log.Printf("Failed to save search state: %v", saveErr)
+					}
+					
+					fmt.Printf("💾 Current progress saved (session: %s)\n", currentSessionID)
+					
+					// Wait until midnight and continue
+					github.WaitUntilMidnight()
+					
+					fmt.Printf("🔄 Resuming collection...\n")
+					continue
+				}
 				
-				// Save current state before waiting
+				log.Printf("Failed to search repositories: %v", err)
+
+				// Save current state before exit
 				state := database.SearchState{
-					SessionID:     currentSessionID,
-					Query:         collectQuery,
-					CurrentCursor: &currentCursor,
-					TotalFetched:  totalFetched,
-					IsCompleted:   false,
+					SessionID:       currentSessionID,
+					Query:           collectQuery,
+					CurrentLanguage: &currentLanguage,
+					CurrentCursor:   &currentCursor,
+					TotalFetched:    totalFetched,
+					IsCompleted:     false,
 				}
 				if saveErr := db.SaveSearchState(state); saveErr != nil {
 					log.Printf("Failed to save search state: %v", saveErr)
 				}
-				
-				fmt.Printf("💾 Current progress saved (session: %s)\n", currentSessionID)
-				
-				// Wait until midnight and continue
-				github.WaitUntilMidnight()
-				
-				fmt.Printf("🔄 Resuming collection...\n")
-				continue
-			}
-			
-			log.Printf("Failed to search repositories: %v", err)
 
-			// Save current state before exit
-			state := database.SearchState{
-				SessionID:     currentSessionID,
-				Query:         collectQuery,
-				CurrentCursor: &currentCursor,
-				TotalFetched:  totalFetched,
-				IsCompleted:   false,
+				log.Fatalf("Search failed. State saved. You can resume with: resume --session-id=%s", currentSessionID)
 			}
-			if saveErr := db.SaveSearchState(state); saveErr != nil {
-				log.Printf("Failed to save search state: %v", saveErr)
-			}
-
-			log.Fatalf("Search failed. State saved. You can resume with: resume --session-id=%s", currentSessionID)
-		}
 
 		pageCount++
 		fmt.Printf("Page %d: Found %d repositories\n", pageCount, len(result.Repositories))
@@ -258,54 +288,75 @@ func runGitHubCollection() {
 			fmt.Printf("  - %s (%d stars, %s)%s - SAVED\n", repo.FullName, repo.StargazerCount, language, status)
 		}
 
-		// Update cursor
-		if result.PageInfo.EndCursor != nil {
-			currentCursor = *result.PageInfo.EndCursor
-		}
-
-		// Save current state after each page
-		state := database.SearchState{
-			SessionID:     currentSessionID,
-			Query:         collectQuery,
-			CurrentCursor: &currentCursor,
-			TotalFetched:  totalFetched,
-			IsCompleted:   !result.PageInfo.HasNextPage,
-		}
-
-		if err := db.SaveSearchState(state); err != nil {
-			log.Printf("Failed to save search state: %v", err)
-		}
-
-		fmt.Printf("Progress: %d repositories fetched (session: %s)\n\n", totalFetched, currentSessionID)
-
-		// Check if we should stop
-		if !result.PageInfo.HasNextPage {
-			fmt.Println("🎉 Collection completed! All repositories have been fetched.")
-			break
-		}
-
-		if result.PageInfo.EndCursor == nil {
-			fmt.Println("⚠️  No more pages available (cursor is nil).")
-			break
-		}
-
-		// Check max limit
-		if collectMaxRepos > 0 && totalFetched >= collectMaxRepos {
-			fmt.Printf("🛑 Reached maximum limit of %d repositories.\n", collectMaxRepos)
-
-			// Mark as completed since we reached the user-defined limit
-			state.IsCompleted = true
-			if err := db.SaveSearchState(state); err != nil {
-				log.Printf("Failed to save final search state: %v", err)
+			// Update cursor
+			if result.PageInfo.EndCursor != nil {
+				currentCursor = *result.PageInfo.EndCursor
 			}
-			break
-		}
 
-		// Add a small delay to be respectful to the API
-		time.Sleep(100 * time.Millisecond)
+			// Save current state after each page
+			state := database.SearchState{
+				SessionID:       currentSessionID,
+				Query:           collectQuery,
+				CurrentLanguage: &currentLanguage,
+				CurrentCursor:   &currentCursor,
+				TotalFetched:    totalFetched,
+				IsCompleted:     false,
+			}
+
+			if err := db.SaveSearchState(state); err != nil {
+				log.Printf("Failed to save search state: %v", err)
+			}
+
+			fmt.Printf("Progress: %d repositories fetched for %s (session: %s)\n\n", totalFetched, currentLanguage, currentSessionID)
+
+			// Check if this language is completed
+			if !result.PageInfo.HasNextPage {
+				fmt.Printf("✅ Language %s completed! All repositories fetched.\n", currentLanguage)
+				languageCompleted = true
+			}
+
+			if result.PageInfo.EndCursor == nil {
+				fmt.Printf("⚠️  No more pages available for %s (cursor is nil).\n", currentLanguage)
+				languageCompleted = true
+			}
+
+			// Check max limit
+			if collectMaxRepos > 0 && totalFetched >= collectMaxRepos {
+				fmt.Printf("🛑 Reached maximum limit of %d repositories.\n", collectMaxRepos)
+
+				// Mark as completed since we reached the user-defined limit
+				state.IsCompleted = true
+				if err := db.SaveSearchState(state); err != nil {
+					log.Printf("Failed to save final search state: %v", err)
+				}
+				goto completedAllLanguages
+			}
+
+			// Add a small delay to be respectful to the API
+			time.Sleep(100 * time.Millisecond)
+		}
+		
+		// Move to next language
+		currentLanguageIndex++
+		currentCursor = "" // Reset cursor for next language
 	}
 
-	fmt.Printf("\n✅ Session %s finished. Total repositories collected: %d\n", currentSessionID, totalFetched)
+completedAllLanguages:
+	// Mark session as completed
+	finalState := database.SearchState{
+		SessionID:       currentSessionID,
+		Query:           collectQuery,
+		CurrentLanguage: &currentLanguage,
+		CurrentCursor:   &currentCursor,
+		TotalFetched:    totalFetched,
+		IsCompleted:     true,
+	}
+	if err := db.SaveSearchState(finalState); err != nil {
+		log.Printf("Failed to save final search state: %v", err)
+	}
+
+	fmt.Printf("\n🎉 All languages processed! Session %s finished.\n", currentSessionID)
+	fmt.Printf("📊 Total repositories collected: %d across %d languages\n", totalFetched, len(languages))
 
 	// Show how to resume if interrupted
 	if !(collectMaxRepos > 0 && totalFetched >= collectMaxRepos) {

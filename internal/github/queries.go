@@ -85,6 +85,31 @@ func (c *Client) GetNextRepositories(ctx context.Context, currentCursor string) 
 	}, nil
 }
 
+func (c *Client) GetNextRepositoriesWithLanguage(ctx context.Context, language, currentCursor string) (*RepositoriesResponse, error) {
+	query := fmt.Sprintf("docker language:%s sort:stars-desc in:readme", language)
+	variables := map[string]interface{}{
+		"query": query,
+		"first": 100,
+		"after": currentCursor,
+	}
+
+	var response struct {
+		Search struct {
+			Repositories []Repository `json:"nodes"`
+			PageInfo     PageInfo     `json:"pageInfo"`
+		} `json:"search"`
+	}
+
+	if err := c.Query(ctx, SearchStarsRepositoriesQuery, variables, &response); err != nil {
+		return nil, fmt.Errorf("failed to get repositories: %w", err)
+	}
+
+	return &RepositoriesResponse{
+		Repositories: response.Search.Repositories,
+		PageInfo:     response.Search.PageInfo,
+	}, nil
+}
+
 func isDockerfile(filename string) bool {
 	lowerName := strings.ToLower(filename)
 	return strings.Contains(lowerName, "dockerfile")
