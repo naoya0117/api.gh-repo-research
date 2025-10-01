@@ -9,15 +9,11 @@ import (
 )
 
 func main() {
-	var dbURL = flag.String("db-url", "", "Database URL (if not set, uses environment variable)")
+	var dbURL = flag.String("db-url", "", "Database URL (if not set, uses DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME environment variables)")
 	flag.Parse()
 
 	if *dbURL == "" {
 		*dbURL = os.Getenv("DATABASE_URL")
-	}
-
-	if *dbURL == "" {
-		log.Fatal("Database URL not provided (use --db-url or DATABASE_URL environment variable)")
 	}
 
 	db, err := database.Connect(*dbURL)

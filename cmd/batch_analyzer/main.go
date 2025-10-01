@@ -19,7 +19,7 @@ func main() {
 		sessionID = flag.String("session-id", "", "Session ID for resume operation")
 		status    = flag.Bool("status", false, "Show current status")
 		workDir   = flag.String("work-dir", "tmp_repositories", "Working directory for repositories")
-		dbURL     = flag.String("db-url", "", "Database URL (if not set, uses environment variable)")
+		dbURL     = flag.String("db-url", "", "Database URL (if not set, uses DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME environment variables)")
 	)
 	flag.Parse()
 
@@ -91,10 +91,6 @@ func setupDatabase(dbURL string) (*database.DB, error) {
 		dbURL = os.Getenv("DATABASE_URL")
 	}
 
-	if dbURL == "" {
-		return nil, fmt.Errorf("database URL not provided (use --db-url or DATABASE_URL environment variable)")
-	}
-
 	db, err := database.Connect(dbURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
@@ -156,7 +152,7 @@ func printStatus(status *batch.AnalysisStatus) {
 
 		if session.RateLimitResetTime != nil {
 			fmt.Printf("  Rate Limit Reset Time: %s\n", session.RateLimitResetTime.Format("2006-01-02 15:04:05"))
-			remaining := session.RateLimitResetTime.Sub(time.Now())
+			remaining := time.Until(*session.RateLimitResetTime)
 			if remaining > 0 {
 				fmt.Printf("  Time until reset: %v\n", remaining.Round(time.Minute))
 			}

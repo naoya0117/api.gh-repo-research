@@ -26,16 +26,12 @@ var setupQueriesCmd = &cobra.Command{
 
 func init() {
 	setupCmd.AddCommand(setupQueriesCmd)
-	setupCmd.PersistentFlags().StringVar(&setupDbURL, "db-url", "", "Database URL (if not set, uses environment variable)")
+	setupCmd.PersistentFlags().StringVar(&setupDbURL, "db-url", "", "Database URL (if not set, uses DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME environment variables)")
 }
 
 func setupCheckQueries() {
 	if setupDbURL == "" {
 		setupDbURL = os.Getenv("DATABASE_URL")
-	}
-
-	if setupDbURL == "" {
-		log.Fatal("Database URL not provided (use --db-url or DATABASE_URL environment variable)")
 	}
 
 	db, err := database.Connect(setupDbURL)

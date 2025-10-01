@@ -57,7 +57,7 @@ func init() {
 	batchCmd.AddCommand(batchStatusCmd)
 
 	batchCmd.PersistentFlags().StringVar(&batchWorkDir, "work-dir", "tmp_repositories", "Working directory for repositories")
-	batchCmd.PersistentFlags().StringVar(&batchDbURL, "db-url", "", "Database URL (if not set, uses environment variable)")
+	batchCmd.PersistentFlags().StringVar(&batchDbURL, "db-url", "", "Database URL (if not set, uses DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME environment variables)")
 	batchResumeCmd.Flags().StringVar(&batchSessionID, "session-id", "", "Session ID for resume operation")
 }
 
@@ -127,10 +127,6 @@ func showBatchStatus() {
 func setupBatchDatabase(dbURL string) (*database.DB, error) {
 	if dbURL == "" {
 		dbURL = os.Getenv("DATABASE_URL")
-	}
-
-	if dbURL == "" {
-		return nil, fmt.Errorf("database URL not provided (use --db-url or DATABASE_URL environment variable)")
 	}
 
 	db, err := database.Connect(dbURL)

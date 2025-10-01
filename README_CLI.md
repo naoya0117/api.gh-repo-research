@@ -59,7 +59,14 @@ go build -o shuron-cli ./cmd/cli
 ## 環境変数
 
 - `GITHUB_TOKEN`: GitHub API アクセストークン（collect コマンドで必要）
-- `DATABASE_URL`: データベース接続URL
+- `DATABASE_URL`: データベース接続URL（オプション、`--db-url`フラグで指定可能）
+
+以下の個別のDB設定環境変数も利用可能：
+- `DB_HOST`: データベースホスト（デフォルト: localhost）
+- `DB_PORT`: データベースポート（デフォルト: 5432）
+- `DB_USER`: データベースユーザー名（デフォルト: user）
+- `DB_PASSWORD`: データベースパスワード（デフォルト: password）
+- `DB_NAME`: データベース名（デフォルト: gh-repo-research）
 
 ## 従来のコマンドとの対応
 
