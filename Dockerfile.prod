@@ -13,6 +13,8 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o ${PACKAGE_NAME} ./cmd/$
 # 内部でgemini-cliを利用するため，nodeのイメージを利用
 FROM node:24.9-bookworm-slim
 
+ENV TZ=Asia/Tokyo
+
 # バイナリを配置
 COPY --from=builder /app/${PACKAGE_NAME} /go-bin/${PACKAGE_NAME}
 
