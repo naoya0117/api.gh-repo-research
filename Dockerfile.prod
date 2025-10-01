@@ -8,17 +8,18 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o main ./cmd/${PACKAGE_NAME}/.
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o ${PACKAGE_NAME} ./cmd/${PACKAGE_NAME}/.
 
 # 内部でgemini-cliを利用するため，nodeのイメージを利用
 FROM node:24.9-bookworm-slim
 
 # バイナリを配置
-COPY --from=builder /app/main /go-bin/main
+COPY --from=builder /app/${PACKAGE_NAME} /go-bin/${PACKAGE_NAME}
 
+WORKDIR /go-bin
 # 非特権ユーザで実行
 USER 10000
 
 EXPOSE 80
 
-CMD ["/go-bin/main"]
+CMD ["/go-bin/${PACKAGE_NAME}"]
