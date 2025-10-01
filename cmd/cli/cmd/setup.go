@@ -40,6 +40,21 @@ func setupCheckQueries() {
 	}
 	defer db.Close()
 
+	// Create necessary tables
+	log.Println("Creating necessary tables...")
+	if err := db.CreateRepositoriesTable(); err != nil {
+		log.Printf("Warning: Failed to create repositories table: %v", err)
+	}
+	if err := db.CreateCheckQueriesTable(); err != nil {
+		log.Fatalf("Failed to create check_queries table: %v", err)
+	}
+	if err := db.CreateEasyCheckedRepositoriesTable(); err != nil {
+		log.Printf("Warning: Failed to create easy_checked_repositories table: %v", err)
+	}
+	if err := db.CreateBatchProgressTable(); err != nil {
+		log.Printf("Warning: Failed to create batch_progress table: %v", err)
+	}
+
 	log.Println("Setting up sample check queries...")
 
 	queries := []struct {
