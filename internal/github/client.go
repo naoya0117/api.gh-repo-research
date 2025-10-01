@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -36,7 +37,17 @@ type GraphQLResponse struct {
 	Errors []struct {
 		Message string        `json:"message"`
 		Path    []interface{} `json:"path,omitempty"`
+		Type    string        `json:"type,omitempty"`
 	} `json:"errors,omitempty"`
+}
+
+type RateLimitError struct {
+	Message   string
+	ResetTime time.Time
+}
+
+func (e *RateLimitError) Error() string {
+	return fmt.Sprintf("rate limit exceeded: %s (resets at %s)", e.Message, e.ResetTime.Format("2006-01-02 15:04:05 MST"))
 }
 
 func (c *Client) Query(ctx context.Context, query string, variables map[string]interface{}, result interface{}) error {
@@ -71,6 +82,9 @@ func (c *Client) Query(ctx context.Context, query string, variables map[string]i
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusForbidden || resp.StatusCode == 429 {
+			return c.handleRateLimit(resp, body)
+		}
 		return fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -80,6 +94,11 @@ func (c *Client) Query(ctx context.Context, query string, variables map[string]i
 	}
 
 	if len(gqlResp.Errors) > 0 {
+		for _, err := range gqlResp.Errors {
+			if strings.Contains(strings.ToLower(err.Message), "rate limit") || err.Type == "RATE_LIMITED" {
+				return c.parseRateLimitFromError(err.Message)
+			}
+		}
 		return fmt.Errorf("GraphQL errors: %+v", gqlResp.Errors)
 	}
 
@@ -93,4 +112,37 @@ func (c *Client) Query(ctx context.Context, query string, variables map[string]i
 	}
 
 	return nil
+}
+
+func (c *Client) handleRateLimit(resp *http.Response, _ []byte) error {
+	resetHeader := resp.Header.Get("X-RateLimit-Reset")
+	if resetHeader != "" {
+		return &RateLimitError{
+			Message:   "Rate limit exceeded",
+			ResetTime: calculateNextMidnight(),
+		}
+	}
+
+	return &RateLimitError{
+		Message:   "Rate limit exceeded",
+		ResetTime: calculateNextMidnight(),
+	}
+}
+
+func (c *Client) parseRateLimitFromError(message string) error {
+	return &RateLimitError{
+		Message:   message,
+		ResetTime: calculateNextMidnight(),
+	}
+}
+
+func calculateNextMidnight() time.Time {
+	now := time.Now()
+	nextMidnight := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+	return nextMidnight
+}
+
+func IsRateLimitError(err error) bool {
+	_, ok := err.(*RateLimitError)
+	return ok
 }

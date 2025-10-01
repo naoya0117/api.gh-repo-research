@@ -162,6 +162,30 @@ func runGitHubCollection() {
 	for {
 		result, err := client.GetNextRepositories(ctx, currentCursor)
 		if err != nil {
+			if github.IsRateLimitError(err) {
+				fmt.Printf("🚫 %v\n", err)
+				
+				// Save current state before waiting
+				state := database.SearchState{
+					SessionID:     currentSessionID,
+					Query:         collectQuery,
+					CurrentCursor: &currentCursor,
+					TotalFetched:  totalFetched,
+					IsCompleted:   false,
+				}
+				if saveErr := db.SaveSearchState(state); saveErr != nil {
+					log.Printf("Failed to save search state: %v", saveErr)
+				}
+				
+				fmt.Printf("💾 Current progress saved (session: %s)\n", currentSessionID)
+				
+				// Wait until midnight and continue
+				github.WaitUntilMidnight()
+				
+				fmt.Printf("🔄 Resuming collection...\n")
+				continue
+			}
+			
 			log.Printf("Failed to search repositories: %v", err)
 
 			// Save current state before exit
@@ -191,8 +215,13 @@ func runGitHubCollection() {
 
 			hasDockerfile, err := client.HasDockerfile(ctx, owner, name)
 			if err != nil {
-				fmt.Printf("Error checking Dockerfile for %s: %v\n", repo.FullName, err)
-				hasDockerfile = false
+				if github.IsRateLimitError(err) {
+					fmt.Printf("🚫 Rate limit while checking Dockerfile for %s. Skipping...\n", repo.FullName)
+					hasDockerfile = false
+				} else {
+					fmt.Printf("Error checking Dockerfile for %s: %v\n", repo.FullName, err)
+					hasDockerfile = false
+				}
 			}
 
 			// Convert GitHub repo to database repo
