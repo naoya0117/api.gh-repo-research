@@ -15,6 +15,13 @@ FROM node:24.9-bookworm-slim
 
 ENV TZ=Asia/Tokyo
 
+# CA証明書とgitをインストール
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    git \
+    && rm -rf /var/lib/apt/lists/* \
+    && update-ca-certificates
+
 # バイナリを配置
 COPY --from=builder /go-bin/${PACKAGE_NAME} /go-bin/${PACKAGE_NAME}
 
