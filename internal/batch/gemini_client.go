@@ -72,12 +72,13 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 	cmd.Dir = repoPath
 	cmd.Env = os.Environ()
 
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		if gc.isRateLimitError(err) {
-			return "", NewRateLimitError(fmt.Sprintf("gemini-cli rate limit exceeded: %v", err))
+		errorMsg := fmt.Sprintf("exit error: %v, output: %s", err, string(output))
+		if gc.isRateLimitError(err) || gc.isRateLimitError(fmt.Errorf("%s", string(output))) {
+			return "", NewRateLimitError(fmt.Sprintf("gemini-cli rate limit exceeded: %s", errorMsg))
 		}
-		return "", fmt.Errorf("gemini-cli execution failed: %w", err)
+		return "", fmt.Errorf("gemini-cli execution failed: %s", errorMsg)
 	}
 
 	return string(output), nil
