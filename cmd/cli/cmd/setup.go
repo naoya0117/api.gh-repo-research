@@ -3,8 +3,10 @@ package cmd
 import (
 	"log"
 	"os"
+	"time"
 
 	"github.com/naoya0117/shuron2025/api/internal/database"
+	"github.com/naoya0117/shuron2025/api/internal/discord"
 	"github.com/spf13/cobra"
 )
 
@@ -30,6 +32,8 @@ func init() {
 }
 
 func setupCheckQueries() {
+	startTime := time.Now()
+	
 	if setupDbURL == "" {
 		setupDbURL = os.Getenv("DATABASE_URL")
 	}
@@ -97,5 +101,13 @@ func setupCheckQueries() {
 		}
 	}
 
+	duration := time.Since(startTime)
 	log.Println("Setup completed successfully!")
+	
+	discordClient := discord.NewClient()
+	if err := discordClient.SendCompletionNotification("setup queries", duration); err != nil {
+		log.Printf("Failed to send Discord notification: %v", err)
+	} else {
+		log.Println("Discord notification sent successfully")
+	}
 }

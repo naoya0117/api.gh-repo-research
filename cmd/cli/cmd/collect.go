@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/naoya0117/shuron2025/api/internal/database"
+	"github.com/naoya0117/shuron2025/api/internal/discord"
 	"github.com/naoya0117/shuron2025/api/internal/github"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -80,6 +81,7 @@ func init() {
 }
 
 func runGitHubCollection() {
+	startTime := time.Now()
 	client := github.NewClient(os.Getenv("GITHUB_TOKEN"))
 
 	// Initialize database connection
@@ -355,8 +357,21 @@ completedAllLanguages:
 		log.Printf("Failed to save final search state: %v", err)
 	}
 
+	duration := time.Since(startTime)
 	fmt.Printf("\n🎉 All languages processed! Session %s finished.\n", currentSessionID)
 	fmt.Printf("📊 Total repositories collected: %d across %d languages\n", totalFetched, len(languages))
+
+	// Send Discord notification
+	discordClient := discord.NewClient()
+	commandName := fmt.Sprintf("collect start --query=\"%s\"", collectQuery)
+	if collectSessionID != "" {
+		commandName = fmt.Sprintf("collect resume --session-id %s", collectSessionID)
+	}
+	if err := discordClient.SendCompletionNotification(commandName, duration); err != nil {
+		log.Printf("Failed to send Discord notification: %v", err)
+	} else {
+		log.Println("Discord notification sent successfully")
+	}
 
 	// Show how to resume if interrupted
 	if !(collectMaxRepos > 0 && totalFetched >= collectMaxRepos) {

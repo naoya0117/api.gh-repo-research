@@ -9,6 +9,7 @@ import (
 
 	"github.com/naoya0117/shuron2025/api/internal/batch"
 	"github.com/naoya0117/shuron2025/api/internal/database"
+	"github.com/naoya0117/shuron2025/api/internal/discord"
 	"github.com/spf13/cobra"
 )
 
@@ -62,6 +63,8 @@ func init() {
 }
 
 func runBatchAnalysis(resume bool, sessionID string) {
+	startTime := time.Now()
+	
 	workDirAbs, err := filepath.Abs(batchWorkDir)
 	if err != nil {
 		log.Fatalf("Failed to get absolute path for work directory: %v", err)
@@ -85,19 +88,30 @@ func runBatchAnalysis(resume bool, sessionID string) {
 	repositoryProcessor := batch.NewRepositoryProcessor(db, geminiClient, gitManager, workDirAbs)
 	analyzer := batch.NewAnalyzer(db, repositoryProcessor, workDirAbs)
 
+	var commandName string
 	if resume {
+		commandName = fmt.Sprintf("batch resume --session-id %s", sessionID)
 		log.Printf("Resuming batch analysis with session ID: %s", sessionID)
 		if err := analyzer.Resume(sessionID); err != nil {
 			log.Fatalf("Failed to resume batch analysis: %v", err)
 		}
 	} else {
+		commandName = "batch start"
 		log.Println("Starting new batch analysis...")
 		if err := analyzer.Run(); err != nil {
 			log.Fatalf("Batch analysis failed: %v", err)
 		}
 	}
 
+	duration := time.Since(startTime)
 	log.Println("Batch analyzer completed successfully")
+	
+	discordClient := discord.NewClient()
+	if err := discordClient.SendCompletionNotification(commandName, duration); err != nil {
+		log.Printf("Failed to send Discord notification: %v", err)
+	} else {
+		log.Println("Discord notification sent successfully")
+	}
 }
 
 func showBatchStatus() {
