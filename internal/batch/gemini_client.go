@@ -49,7 +49,7 @@ func (gc *GeminiClient) CheckAuthentication() error {
 		return fmt.Errorf("gemini-cli コマンドの終了コードが異常です: %v", exitErr)
 	}
 
-	testCmd := exec.Command("npx", "-y", "@google/gemini-cli", "--prompt", "Hello")
+	testCmd := exec.Command("npx", "-y", "@google/gemini-cli", "-p", "Hello")
 	_, err = testCmd.Output()
 	if err != nil {
 		return fmt.Errorf("gemini-cli authentication failed. Please run 'npx -y @google/gemini-cli auth' first: %w", err)
@@ -68,7 +68,7 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 	ctx, cancel := context.WithTimeout(context.Background(), gc.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "npx", "-y", "@google/gemini-cli", "--prompt-file", promptFile)
+	cmd := exec.CommandContext(ctx, "npx", "-y", "@google/gemini-cli", "-p", fmt.Sprintf("@%s", promptFile))
 	cmd.Dir = repoPath
 	cmd.Env = os.Environ()
 
