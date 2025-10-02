@@ -1,6 +1,7 @@
 package batch
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -78,16 +79,33 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 	cmd.Dir = repoPath
 	cmd.Env = os.Environ()
 
-	output, err := cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	
+	err = cmd.Run()
 	if err != nil {
-		errorMsg := fmt.Sprintf("exit error: %v, output: %s", err, string(output))
-		if gc.isRateLimitError(err) || gc.isRateLimitError(fmt.Errorf("%s", string(output))) {
+		stderrStr := stderr.String()
+		stdoutStr := stdout.String()
+		errorMsg := fmt.Sprintf("exit error: %v, stderr: %s, stdout: %s", err, stderrStr, stdoutStr)
+		
+		// ログにはエラー詳細を出力
+		log.Printf("Gemini CLI error - stderr: %s", stderrStr)
+		log.Printf("Gemini CLI error - stdout: %s", stdoutStr)
+		
+		if gc.isRateLimitError(err) || gc.isRateLimitError(fmt.Errorf("%s", stderrStr)) {
 			return "", NewRateLimitError(fmt.Sprintf("gemini-cli rate limit exceeded: %s", errorMsg))
 		}
 		return "", fmt.Errorf("gemini-cli execution failed: %s", errorMsg)
 	}
 
-	return string(output), nil
+	// 正常時は標準出力のみを返す
+	result := stdout.String()
+	if stderr.Len() > 0 {
+		log.Printf("Gemini CLI warning - stderr: %s", stderr.String())
+	}
+	
+	return result, nil
 }
 
 func (gc *GeminiClient) AnalyzeRepositoryWithRetry(repoPath string, query database.CheckQuery, maxRetries int) (string, error) {
