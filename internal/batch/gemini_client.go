@@ -68,7 +68,13 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 	ctx, cancel := context.WithTimeout(context.Background(), gc.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "npx", "-y", "@google/gemini-cli", "--workspace-dir", repoPath, "--allowed-tools", "read_file,list_directory,glob,search_file_content,web_fetch,google_web_search", "-p", fmt.Sprintf("@%s", promptFile))
+	// プロンプトファイルの内容を読み込み
+	promptContent, err := os.ReadFile(promptFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read prompt file: %w", err)
+	}
+	
+	cmd := exec.CommandContext(ctx, "npx", "-y", "@google/gemini-cli", "--include-directories", repoPath, "--allowed-tools", "read_file,list_directory,glob,search_file_content,web_fetch,google_web_search", string(promptContent))
 	cmd.Dir = repoPath
 	cmd.Env = os.Environ()
 
