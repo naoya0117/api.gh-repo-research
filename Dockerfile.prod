@@ -29,6 +29,8 @@ RUN useradd -m -u 10000 ${PACKAGE_NAME}
 # バイナリを配置
 COPY --from=builder /go-bin/${PACKAGE_NAME} /go-bin/${PACKAGE_NAME}
 
+RUN chown -R 10000:10000 /go-bin
+
 WORKDIR /go-bin
 # 非特権ユーザで実行
 USER ${PACKAGE_NAME}
