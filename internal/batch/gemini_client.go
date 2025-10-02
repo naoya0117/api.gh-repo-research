@@ -68,7 +68,7 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 	ctx, cancel := context.WithTimeout(context.Background(), gc.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "npx", "-y", "@google/gemini-cli", "--allowed-tools", "read_file,list_directory,glob,search_file_content,web_fetch,google_web_search", "-p", fmt.Sprintf("@%s", promptFile))
+	cmd := exec.CommandContext(ctx, "npx", "-y", "@google/gemini-cli", "--workspace-dir", repoPath, "--allowed-tools", "read_file,list_directory,glob,search_file_content,web_fetch,google_web_search", "-p", fmt.Sprintf("@%s", promptFile))
 	cmd.Dir = repoPath
 	cmd.Env = os.Environ()
 
