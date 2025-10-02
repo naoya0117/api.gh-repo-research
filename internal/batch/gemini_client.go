@@ -40,13 +40,13 @@ func NewGeminiClient(workingDir string, timeout time.Duration) *GeminiClient {
 func (gc *GeminiClient) CheckAuthentication() error {
 	cmd := exec.Command("npx", "-y", "@google/gemini-cli", "--help")
 
-	output, err := cmd.Output()
+	_, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("@google/gemini-cli not available: %w", err)
 	}
 
-	if !strings.Contains(string(output), "gemini-cli") {
-		return fmt.Errorf("unexpected gemini-cli output")
+	if exitErr, ok := err.(*exec.ExitError); ok {
+		return fmt.Errorf("gemini-cli コマンドの終了コードが異常です: %v", exitErr)
 	}
 
 	testCmd := exec.Command("npx", "-y", "@google/gemini-cli", "--prompt", "Hello")
