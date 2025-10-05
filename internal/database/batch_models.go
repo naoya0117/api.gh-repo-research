@@ -147,6 +147,41 @@ func (db *DB) InsertCheckQuery(name, description, queryTemplate string) error {
 	return err
 }
 
+func (db *DB) GetRepository(id int) (*Repository, error) {
+	query := `
+		SELECT id, url, name_with_owner, stargazer_count, primary_language, has_dockerfile, created_at, updated_at
+		FROM repositories
+		WHERE id = $1
+	`
+	row := db.QueryRow(query, id)
+
+	var repo Repository
+	var primaryLanguage sql.NullString
+
+	err := row.Scan(
+		&repo.ID,
+		&repo.URL,
+		&repo.NameWithOwner,
+		&repo.StargazerCount,
+		&primaryLanguage,
+		&repo.HasDockerfile,
+		&repo.CreatedAt,
+		&repo.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if primaryLanguage.Valid {
+		repo.PrimaryLanguage = &primaryLanguage.String
+	}
+
+	return &repo, nil
+}
+
 func (db *DB) GetUncheckedRepositories() ([]Repository, error) {
 	query := `
 		SELECT r.id, r.url, r.name_with_owner, r.stargazer_count, r.primary_language, r.has_dockerfile, r.created_at, r.updated_at

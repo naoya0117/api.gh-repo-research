@@ -23,7 +23,7 @@ type RepositoryProcessor struct {
 func NewRepositoryProcessor(db *database.DB, geminiClient *GeminiClient, gitManager *GitManager, workDir string) *RepositoryProcessor {
 	return &RepositoryProcessor{
 		db:             db,
-		geminiAnalyzer: NewGeminiAnalyzer(geminiClient, db),
+		geminiAnalyzer: NewGeminiAnalyzer(geminiClient, db, gitManager, workDir),
 		gitManager:     gitManager,
 		workDir:        workDir,
 		maxRetries:     3,

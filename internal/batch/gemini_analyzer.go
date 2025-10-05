@@ -17,16 +17,20 @@ const (
 
 // GeminiAnalyzer manages repository analysis with rate limit handling
 type GeminiAnalyzer struct {
-	client *GeminiClient
-	db     *database.DB
-	queue  *ratelimit.FailedQueue
+	client     *GeminiClient
+	db         *database.DB
+	queue      *ratelimit.FailedQueue
+	gitManager *GitManager
+	workDir    string
 }
 
-func NewGeminiAnalyzer(client *GeminiClient, db *database.DB) *GeminiAnalyzer {
+func NewGeminiAnalyzer(client *GeminiClient, db *database.DB, gitManager *GitManager, workDir string) *GeminiAnalyzer {
 	return &GeminiAnalyzer{
-		client: client,
-		db:     db,
-		queue:  ratelimit.NewFailedQueue(db),
+		client:     client,
+		db:         db,
+		queue:      ratelimit.NewFailedQueue(db),
+		gitManager: gitManager,
+		workDir:    workDir,
 	}
 }
 
@@ -76,6 +80,14 @@ func (ga *GeminiAnalyzer) processFailedQueue(ctx context.Context) error {
 				continue
 			}
 
+			// Get repository info
+			repo, err := ga.db.GetRepository(req.RepositoryID)
+			if err != nil {
+				log.Printf("Failed to get repository %d: %v", req.RepositoryID, err)
+				_ = ga.queue.DeleteItem(ctx, item.ID)
+				continue
+			}
+
 			// Get the check query
 			queries, err := ga.db.GetCheckQueries()
 			if err != nil {
@@ -97,8 +109,30 @@ func (ga *GeminiAnalyzer) processFailedQueue(ctx context.Context) error {
 				continue
 			}
 
+			// Clone repository for retry
+			repoDir := fmt.Sprintf("%s/%d", ga.workDir, req.RepositoryID)
+
+			// Clean up any existing directory first
+			if err := ga.gitManager.Cleanup(repoDir); err != nil {
+				log.Printf("Warning: failed to cleanup existing directory %s: %v", repoDir, err)
+			}
+
+			// Clone the repository
+			if err := ga.gitManager.Clone(repo.URL, repoDir); err != nil {
+				log.Printf("Failed to clone repository %s for retry: %v", repo.URL, err)
+				// Keep in queue for later retry
+				continue
+			}
+
+			// Ensure cleanup after retry
+			defer func(dir string) {
+				if err := ga.gitManager.Cleanup(dir); err != nil {
+					log.Printf("Warning: failed to cleanup %s after retry: %v", dir, err)
+				}
+			}(repoDir)
+
 			// Retry the analysis
-			response, err := ga.client.AnalyzeRepositoryWithRetry(req.RepositoryPath, *query, 3)
+			response, err := ga.client.AnalyzeRepositoryWithRetry(repoDir, *query, 3)
 			if err != nil {
 				if IsGeminiRateLimitError(err) {
 					log.Printf("Rate limit hit while retrying, re-entering sleep mode")
