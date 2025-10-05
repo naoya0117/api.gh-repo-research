@@ -37,4 +37,6 @@ USER ${PACKAGE_NAME}
 
 EXPOSE 80
 
+ENV PACKAGE_NAME=${PACKAGE_NAME}
+
 CMD ["bash", "-c", "/go-bin/${PACKAGE_NAME}"]
