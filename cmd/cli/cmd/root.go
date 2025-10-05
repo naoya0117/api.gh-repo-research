@@ -20,4 +20,5 @@ func init() {
 	rootCmd.AddCommand(collectCmd)
 	rootCmd.AddCommand(setupCmd)
 	rootCmd.AddCommand(mychkCmd)
+	rootCmd.AddCommand(webappCmd)
 }
