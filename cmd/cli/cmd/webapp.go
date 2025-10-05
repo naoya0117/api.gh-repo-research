@@ -39,12 +39,10 @@ func initWebAppCheckTable() {
 
 	query := `
 		CREATE TABLE IF NOT EXISTS repository_webapp_checks (
-			id SERIAL PRIMARY KEY,
-			repository_id INTEGER REFERENCES repositories(id) ON DELETE CASCADE,
+			repository_id INTEGER PRIMARY KEY REFERENCES repositories(id) ON DELETE CASCADE,
 			is_web_app BOOLEAN,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			UNIQUE(repository_id)
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)
 	`
 
@@ -54,10 +52,8 @@ func initWebAppCheckTable() {
 
 	log.Println("✓ repository_webapp_checks table created successfully")
 	fmt.Println("Table structure:")
-	fmt.Println("  - id: SERIAL PRIMARY KEY")
-	fmt.Println("  - repository_id: INTEGER (FOREIGN KEY to repositories.id)")
+	fmt.Println("  - repository_id: INTEGER PRIMARY KEY (FOREIGN KEY to repositories.id)")
 	fmt.Println("  - is_web_app: BOOLEAN")
 	fmt.Println("  - created_at: TIMESTAMP")
 	fmt.Println("  - updated_at: TIMESTAMP")
-	fmt.Println("  - UNIQUE constraint on repository_id")
 }
