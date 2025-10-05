@@ -37,4 +37,4 @@ USER ${PACKAGE_NAME}
 
 EXPOSE 80
 
-CMD ["/go-bin/${PACKAGE_NAME}"]
+CMD ["bash", "-c", "/go-bin/${PACKAGE_NAME}"]
