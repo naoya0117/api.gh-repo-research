@@ -19,4 +19,5 @@ func init() {
 	rootCmd.AddCommand(batchCmd)
 	rootCmd.AddCommand(collectCmd)
 	rootCmd.AddCommand(setupCmd)
+	rootCmd.AddCommand(mychkCmd)
 }
