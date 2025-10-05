@@ -175,6 +175,14 @@ func createBatchTables(db *database.DB) error {
 		return fmt.Errorf("failed to create batch_progress table: %w", err)
 	}
 
+	if err := db.CreateRateLimitStateTable(); err != nil {
+		return fmt.Errorf("failed to create rate_limit_state table: %w", err)
+	}
+
+	if err := db.CreateFailedQueueTable(); err != nil {
+		return fmt.Errorf("failed to create failed_queue table: %w", err)
+	}
+
 	log.Println("✓ All database tables created/verified")
 	return nil
 }
