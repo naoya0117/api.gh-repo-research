@@ -3,15 +3,18 @@ package batch
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/naoya0117/shuron2025/api/internal/database"
+	"github.com/naoya0117/shuron2025/api/internal/ratelimit"
 )
 
 type GeminiClient struct {
@@ -19,16 +22,27 @@ type GeminiClient struct {
 	timeout    time.Duration
 }
 
-type RateLimitError struct {
-	message string
+type GeminiRateLimitError struct {
+	message   string
+	resetTime *time.Time
 }
 
-func (e *RateLimitError) Error() string {
-	return e.message
+func (e *GeminiRateLimitError) Error() string {
+	if e.resetTime != nil {
+		return fmt.Sprintf("gemini rate limit: %s (resets at %s)", e.message, e.resetTime.Format("2006-01-02 15:04:05 MST"))
+	}
+	return fmt.Sprintf("gemini rate limit: %s", e.message)
 }
 
-func NewRateLimitError(message string) *RateLimitError {
-	return &RateLimitError{message: message}
+func (e *GeminiRateLimitError) Is(target error) bool {
+	return target == ratelimit.ErrRateLimited
+}
+
+func NewGeminiRateLimitError(message string, resetTime *time.Time) *GeminiRateLimitError {
+	return &GeminiRateLimitError{
+		message:   message,
+		resetTime: resetTime,
+	}
 }
 
 func NewGeminiClient(workingDir string, timeout time.Duration) *GeminiClient {
@@ -88,13 +102,15 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 		stderrStr := stderr.String()
 		stdoutStr := stdout.String()
 		errorMsg := fmt.Sprintf("exit error: %v, stderr: %s, stdout: %s", err, stderrStr, stdoutStr)
-		
+
 		// ログにはエラー詳細を出力
 		log.Printf("Gemini CLI error - stderr: %s", stderrStr)
 		log.Printf("Gemini CLI error - stdout: %s", stdoutStr)
-		
+
+		// Check for rate limit and try to extract reset time
 		if gc.isRateLimitError(err) || gc.isRateLimitError(fmt.Errorf("%s", stderrStr)) {
-			return "", NewRateLimitError(fmt.Sprintf("gemini-cli rate limit exceeded: %s", errorMsg))
+			resetTime := gc.parseGeminiResetTime(stderrStr + " " + stdoutStr)
+			return "", NewGeminiRateLimitError(fmt.Sprintf("gemini-cli rate limit exceeded: %s", errorMsg), resetTime)
 		}
 		return "", fmt.Errorf("gemini-cli execution failed: %s", errorMsg)
 	}
@@ -117,7 +133,8 @@ func (gc *GeminiClient) AnalyzeRepositoryWithRetry(repoPath string, query databa
 			return result, nil
 		}
 
-		if _, isRateLimit := err.(*RateLimitError); isRateLimit {
+		// Don't retry on rate limit errors - propagate immediately
+		if errors.Is(err, ratelimit.ErrRateLimited) {
 			return "", err
 		}
 
@@ -194,4 +211,54 @@ func (gc *GeminiClient) createPromptFile(query database.CheckQuery) (string, err
 
 	tmpFile.Close()
 	return tmpFile.Name(), nil
+}
+
+func (gc *GeminiClient) parseGeminiResetTime(output string) *time.Time {
+	// Try to extract reset time from Gemini CLI error messages
+	// Common patterns:
+	// - "try again in X seconds"
+	// - "retry after HH:MM:SS"
+	// - "reset at YYYY-MM-DDTHH:MM:SSZ"
+
+	// Pattern 1: "try again in X seconds/minutes/hours"
+	reSeconds := regexp.MustCompile(`try again in (\d+)\s*(second|minute|hour)s?`)
+	if matches := reSeconds.FindStringSubmatch(output); len(matches) >= 3 {
+		var duration time.Duration
+		amount := 0
+		fmt.Sscanf(matches[1], "%d", &amount)
+
+		switch matches[2] {
+		case "second":
+			duration = time.Duration(amount) * time.Second
+		case "minute":
+			duration = time.Duration(amount) * time.Minute
+		case "hour":
+			duration = time.Duration(amount) * time.Hour
+		}
+
+		if duration > 0 {
+			resetTime := time.Now().Add(duration)
+			log.Printf("Parsed Gemini reset time from error: %s", resetTime.Format("2006-01-02 15:04:05 MST"))
+			return &resetTime
+		}
+	}
+
+	// Pattern 2: ISO 8601 timestamp
+	reISO := regexp.MustCompile(`(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2}))`)
+	if matches := reISO.FindStringSubmatch(output); len(matches) >= 2 {
+		if t, err := time.Parse(time.RFC3339, matches[1]); err == nil {
+			log.Printf("Parsed Gemini reset time from ISO format: %s", t.Format("2006-01-02 15:04:05 MST"))
+			return &t
+		}
+	}
+
+	log.Printf("Could not parse reset time from Gemini error, will use JST midnight fallback")
+	return nil
+}
+
+func IsGeminiRateLimitError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, ratelimit.ErrRateLimited)
 }

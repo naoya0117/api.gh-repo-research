@@ -1,6 +1,7 @@
 package batch
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -29,14 +30,20 @@ func NewAnalyzer(db *database.DB, repositoryProcessor *RepositoryProcessor, work
 }
 
 func (a *Analyzer) Run() error {
+	ctx := context.Background()
 	log.Printf("Starting batch analysis with session ID: %s", a.sessionID)
-	
+
 	if err := a.setupWorkDirectory(); err != nil {
 		return fmt.Errorf("failed to setup work directory: %w", err)
 	}
-	
+
 	if err := a.repositoryProcessor.ValidateEnvironment(); err != nil {
 		return fmt.Errorf("environment validation failed: %w", err)
+	}
+
+	// Initialize rate limit handling
+	if err := a.repositoryProcessor.geminiAnalyzer.StartAnalysisWithRateLimitHandling(ctx); err != nil {
+		return fmt.Errorf("failed to initialize rate limit handling: %w", err)
 	}
 	
 	repositories, err := a.db.GetUncheckedRepositories()
@@ -67,56 +74,35 @@ func (a *Analyzer) Run() error {
 	startTime := time.Now()
 	for i, repo := range repositories {
 		log.Printf("Processing repository %d/%d: %s", i+1, len(repositories), repo.NameWithOwner)
-		
+
 		progress.CurrentRepositoryID = &repo.ID
 		if err := a.db.SaveBatchProgress(progress); err != nil {
 			log.Printf("Warning: failed to update progress: %v", err)
 		}
-		
+
 		repoStartTime := time.Now()
-		err := a.repositoryProcessor.ProcessRepository(repo)
-		
+		err := a.repositoryProcessor.ProcessRepository(ctx, repo)
+
 		if err != nil {
-			if _, isRateLimit := err.(*RateLimitError); isRateLimit {
-				log.Printf("Rate limit reached. Pausing batch process and scheduling resume for next midnight")
-				
-				resetTime := a.repositoryProcessor.rateLimitScheduler.GetNextMidnight(time.Now())
-				progress.Status = "rate_limited"
-				progress.RateLimitResetTime = &resetTime
-				
-				if err := a.db.SaveBatchProgress(progress); err != nil {
-					log.Printf("Warning: failed to save rate limit status: %v", err)
-				}
-				
-				if scheduleErr := a.repositoryProcessor.rateLimitScheduler.HandleRateLimit(); scheduleErr != nil {
-					log.Printf("Error during rate limit wait: %v", scheduleErr)
-					return fmt.Errorf("rate limit handling failed: %w", scheduleErr)
-				}
-				
-				progress.Status = "running"
-				progress.RateLimitResetTime = nil
-				log.Printf("Rate limit period ended. Resuming batch processing")
-				
-				continue
-			}
-			
 			log.Printf("Failed to process repository %s: %v", repo.NameWithOwner, err)
+			// Rate limit is handled internally now, so we don't need special handling here
+			// The analyzer will sleep and retry automatically
 		} else {
 			progress.CompletedRepositories++
-			log.Printf("Successfully processed repository %s (took %v)", 
+			log.Printf("Successfully processed repository %s (took %v)",
 				repo.NameWithOwner, time.Since(repoStartTime))
 		}
-		
+
 		if err := a.db.SaveBatchProgress(progress); err != nil {
 			log.Printf("Warning: failed to update progress: %v", err)
 		}
-		
+
 		elapsed := time.Since(startTime)
 		remaining := len(repositories) - (i + 1)
 		if remaining > 0 && i > 0 {
 			avgTimePerRepo := elapsed / time.Duration(i+1)
 			estimatedRemaining := avgTimePerRepo * time.Duration(remaining)
-			log.Printf("Progress: %d/%d completed, estimated time remaining: %v", 
+			log.Printf("Progress: %d/%d completed, estimated time remaining: %v",
 				i+1, len(repositories), estimatedRemaining)
 		}
 	}
@@ -136,29 +122,35 @@ func (a *Analyzer) Run() error {
 }
 
 func (a *Analyzer) Resume(sessionID string) error {
+	ctx := context.Background()
 	log.Printf("Resuming batch analysis with session ID: %s", sessionID)
-	
+
 	progress, err := a.db.LoadBatchProgress(sessionID)
 	if err != nil {
 		return fmt.Errorf("failed to load progress for session %s: %w", sessionID, err)
 	}
-	
+
 	if progress == nil {
 		return fmt.Errorf("no progress found for session %s", sessionID)
 	}
-	
+
 	if progress.Status == "completed" {
 		log.Printf("Session %s is already completed", sessionID)
 		return nil
 	}
-	
+
 	a.sessionID = sessionID
-	
+
+	// Initialize rate limit handling
+	if err := a.repositoryProcessor.geminiAnalyzer.StartAnalysisWithRateLimitHandling(ctx); err != nil {
+		return fmt.Errorf("failed to initialize rate limit handling: %w", err)
+	}
+
 	repositories, err := a.db.GetUncheckedRepositories()
 	if err != nil {
 		return fmt.Errorf("failed to get unchecked repositories: %w", err)
 	}
-	
+
 	if len(repositories) == 0 {
 		log.Println("No unchecked repositories found")
 		progress.Status = "completed"
@@ -167,33 +159,33 @@ func (a *Analyzer) Resume(sessionID string) error {
 		}
 		return nil
 	}
-	
+
 	log.Printf("Resuming processing of %d remaining repositories", len(repositories))
-	
+
 	progress.Status = "running"
 	progress.TotalRepositories = len(repositories) + progress.CompletedRepositories
-	
+
 	if err := a.db.SaveBatchProgress(*progress); err != nil {
 		return fmt.Errorf("failed to save resumed progress: %w", err)
 	}
-	
+
 	a.setupSignalHandler()
-	
+
 	for i, repo := range repositories {
 		log.Printf("Processing repository %d/%d: %s", i+1, len(repositories), repo.NameWithOwner)
-		
+
 		progress.CurrentRepositoryID = &repo.ID
 		if err := a.db.SaveBatchProgress(*progress); err != nil {
 			log.Printf("Warning: failed to update progress: %v", err)
 		}
-		
-		if err := a.repositoryProcessor.ProcessRepository(repo); err != nil {
+
+		if err := a.repositoryProcessor.ProcessRepository(ctx, repo); err != nil {
 			log.Printf("Failed to process repository %s: %v", repo.NameWithOwner, err)
 		} else {
 			progress.CompletedRepositories++
 			log.Printf("Successfully processed repository %s", repo.NameWithOwner)
 		}
-		
+
 		if err := a.db.SaveBatchProgress(*progress); err != nil {
 			log.Printf("Warning: failed to update progress: %v", err)
 		}

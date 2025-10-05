@@ -35,6 +35,22 @@ type BatchProgress struct {
 	UpdatedAt              time.Time  `json:"updatedAt"`
 }
 
+type RateLimitState struct {
+	Kind       string     `json:"kind"`
+	IsSleeping bool       `json:"isSleeping"`
+	ResumeAt   *time.Time `json:"resumeAt"`
+	Reason     string     `json:"reason"`
+	UpdatedAt  time.Time  `json:"updatedAt"`
+}
+
+type FailedItem struct {
+	ID         int       `json:"id"`
+	Kind       string    `json:"kind"`
+	Payload    string    `json:"payload"`
+	Reason     string    `json:"reason"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
 func (db *DB) CreateCheckQueriesTable() error {
 	query := `
 		CREATE TABLE IF NOT EXISTS check_queries (
@@ -325,4 +341,136 @@ func (db *DB) ListBatchProgress() ([]BatchProgress, error) {
 	}
 
 	return progressList, rows.Err()
+}
+
+func (db *DB) CreateRateLimitStateTable() error {
+	query := `
+		CREATE TABLE IF NOT EXISTS rate_limit_state (
+			kind TEXT PRIMARY KEY,
+			is_sleeping BOOLEAN NOT NULL DEFAULT FALSE,
+			resume_at TIMESTAMPTZ,
+			reason TEXT,
+			updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+		)
+	`
+	_, err := db.Exec(query)
+	return err
+}
+
+func (db *DB) CreateFailedQueueTable() error {
+	query := `
+		CREATE TABLE IF NOT EXISTS failed_queue (
+			id SERIAL PRIMARY KEY,
+			kind TEXT NOT NULL,
+			payload JSONB NOT NULL,
+			reason TEXT,
+			created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+		)
+	`
+	_, err := db.Exec(query)
+	return err
+}
+
+func (db *DB) GetRateLimitState(kind string) (*RateLimitState, error) {
+	query := `
+		SELECT kind, is_sleeping, resume_at, reason, updated_at
+		FROM rate_limit_state
+		WHERE kind = $1
+	`
+	row := db.QueryRow(query, kind)
+
+	var state RateLimitState
+	var resumeAt sql.NullTime
+	var reason sql.NullString
+
+	err := row.Scan(
+		&state.Kind,
+		&state.IsSleeping,
+		&resumeAt,
+		&reason,
+		&state.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if resumeAt.Valid {
+		state.ResumeAt = &resumeAt.Time
+	}
+	if reason.Valid {
+		state.Reason = reason.String
+	}
+
+	return &state, nil
+}
+
+func (db *DB) SetRateLimitState(state RateLimitState) error {
+	query := `
+		INSERT INTO rate_limit_state (kind, is_sleeping, resume_at, reason, updated_at)
+		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+		ON CONFLICT (kind) DO UPDATE SET
+			is_sleeping = EXCLUDED.is_sleeping,
+			resume_at = EXCLUDED.resume_at,
+			reason = EXCLUDED.reason,
+			updated_at = CURRENT_TIMESTAMP
+	`
+	_, err := db.Exec(query, state.Kind, state.IsSleeping, state.ResumeAt, state.Reason)
+	return err
+}
+
+func (db *DB) EnqueueFailedItem(item FailedItem) error {
+	query := `
+		INSERT INTO failed_queue (kind, payload, reason, created_at)
+		VALUES ($1, $2, $3, $4)
+	`
+	_, err := db.Exec(query, item.Kind, item.Payload, item.Reason, item.CreatedAt)
+	return err
+}
+
+func (db *DB) DequeueFailedItems(kind string, limit int) ([]FailedItem, error) {
+	query := `
+		SELECT id, kind, payload, reason, created_at
+		FROM failed_queue
+		WHERE kind = $1
+		ORDER BY created_at ASC
+		LIMIT $2
+	`
+	rows, err := db.Query(query, kind, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []FailedItem
+	for rows.Next() {
+		var item FailedItem
+		err := rows.Scan(
+			&item.ID,
+			&item.Kind,
+			&item.Payload,
+			&item.Reason,
+			&item.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+
+	return items, rows.Err()
+}
+
+func (db *DB) DeleteFailedItem(id int) error {
+	query := `DELETE FROM failed_queue WHERE id = $1`
+	_, err := db.Exec(query, id)
+	return err
+}
+
+func (db *DB) ClearFailedItems(kind string) error {
+	query := `DELETE FROM failed_queue WHERE kind = $1`
+	_, err := db.Exec(query, kind)
+	return err
 }

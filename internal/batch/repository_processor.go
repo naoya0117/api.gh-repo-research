@@ -1,35 +1,36 @@
 package batch
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"path/filepath"
 	"time"
 
 	"github.com/naoya0117/shuron2025/api/internal/database"
+	"github.com/naoya0117/shuron2025/api/internal/ratelimit"
 )
 
 type RepositoryProcessor struct {
-	db                   *database.DB
-	geminiClient         *GeminiClient
-	gitManager           *GitManager
-	workDir              string
-	maxRetries           int
-	rateLimitScheduler   *RateLimitScheduler
+	db             *database.DB
+	geminiAnalyzer *GeminiAnalyzer
+	gitManager     *GitManager
+	workDir        string
+	maxRetries     int
 }
 
 func NewRepositoryProcessor(db *database.DB, geminiClient *GeminiClient, gitManager *GitManager, workDir string) *RepositoryProcessor {
 	return &RepositoryProcessor{
-		db:                 db,
-		geminiClient:       geminiClient,
-		gitManager:         gitManager,
-		workDir:            workDir,
-		maxRetries:         3,
-		rateLimitScheduler: NewRateLimitScheduler(),
+		db:             db,
+		geminiAnalyzer: NewGeminiAnalyzer(geminiClient, db),
+		gitManager:     gitManager,
+		workDir:        workDir,
+		maxRetries:     3,
 	}
 }
 
-func (rp *RepositoryProcessor) ProcessRepository(repo database.Repository) error {
+func (rp *RepositoryProcessor) ProcessRepository(ctx context.Context, repo database.Repository) error {
 	repoDir := filepath.Join(rp.workDir, fmt.Sprintf("%d", repo.ID))
 	
 	defer func() {
@@ -75,71 +76,77 @@ func (rp *RepositoryProcessor) ProcessRepository(repo database.Repository) error
 	
 	successCount := 0
 	for _, query := range queries {
-		if err := rp.executeCheck(repo, query, repoDir); err != nil {
-			log.Printf("Check failed for repo %d (%s), query %d (%s): %v", 
+		if err := rp.executeCheck(ctx, repo, query, repoDir); err != nil {
+			// If rate limited, propagate error to trigger sleep
+			if errors.Is(err, ratelimit.ErrRateLimited) {
+				log.Printf("Rate limit reached during check execution")
+				return err
+			}
+
+			log.Printf("Check failed for repo %d (%s), query %d (%s): %v",
 				repo.ID, repo.NameWithOwner, query.ID, query.Name, err)
 			continue
 		}
 		successCount++
 	}
-	
-	log.Printf("Completed repository %s: %d/%d checks succeeded", 
+
+	log.Printf("Completed repository %s: %d/%d checks succeeded",
 		repo.NameWithOwner, successCount, len(queries))
-	
+
 	return nil
 }
 
-func (rp *RepositoryProcessor) executeCheck(repo database.Repository, query database.CheckQuery, repoDir string) error {
+func (rp *RepositoryProcessor) executeCheck(ctx context.Context, repo database.Repository, query database.CheckQuery, repoDir string) error {
 	existing, err := rp.db.GetEasyCheckedRepository(repo.ID, query.ID)
 	if err != nil {
 		return fmt.Errorf("failed to check existing result: %w", err)
 	}
-	
+
 	if existing != nil && existing.Status == "completed" {
 		log.Printf("Check already completed for repo %d, query %d, skipping", repo.ID, query.ID)
 		return nil
 	}
-	
+
 	log.Printf("Executing check: %s for repository %s", query.Name, repo.NameWithOwner)
-	
+
 	if err := rp.db.InsertEasyCheckedRepository(repo.ID, query.ID, "", "pending"); err != nil {
 		return fmt.Errorf("failed to create pending check record: %w", err)
 	}
-	
+
 	startTime := time.Now()
-	response, err := rp.geminiClient.AnalyzeRepositoryWithRetry(repoDir, query, rp.maxRetries)
+	response, err := rp.geminiAnalyzer.AnalyzeWithRateLimitHandling(ctx, repo.ID, repoDir, query)
 	duration := time.Since(startTime)
-	
+
 	if err != nil {
-		if rateLimitErr, isRateLimit := err.(*RateLimitError); isRateLimit {
-			log.Printf("Rate limit encountered for repo %s, query %s: %v", 
-				repo.NameWithOwner, query.Name, rateLimitErr)
-			
-			if err := rp.db.InsertEasyCheckedRepository(repo.ID, query.ID, 
+		if errors.Is(err, ratelimit.ErrRateLimited) {
+			log.Printf("Rate limit encountered for repo %s, query %s",
+				repo.NameWithOwner, query.Name)
+
+			if err := rp.db.InsertEasyCheckedRepository(repo.ID, query.ID,
 				"Rate limit reached - will retry after reset", "rate_limited"); err != nil {
 				log.Printf("Failed to update check status to rate_limited: %v", err)
 			}
-			
-			return &RateLimitError{message: "rate limit reached during analysis"}
+
+			return err
 		}
-		
-		log.Printf("Gemini analysis failed for repo %s, query %s (took %v): %v", 
+
+		log.Printf("Gemini analysis failed for repo %s, query %s (took %v): %v",
 			repo.NameWithOwner, query.Name, duration, err)
-		
-		if updateErr := rp.db.InsertEasyCheckedRepository(repo.ID, query.ID, 
+
+		if updateErr := rp.db.InsertEasyCheckedRepository(repo.ID, query.ID,
 			fmt.Sprintf("Error: %v", err), "failed"); updateErr != nil {
 			log.Printf("Failed to update check status to failed: %v", updateErr)
 		}
 		return err
 	}
-	
-	log.Printf("Gemini analysis completed for repo %s, query %s (took %v)", 
+
+	log.Printf("Gemini analysis completed for repo %s, query %s (took %v)",
 		repo.NameWithOwner, query.Name, duration)
-	
+
 	if err := rp.db.InsertEasyCheckedRepository(repo.ID, query.ID, response, "completed"); err != nil {
 		return fmt.Errorf("failed to save check result: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -176,19 +183,16 @@ func (rp *RepositoryProcessor) GetProcessingStats(repositories []database.Reposi
 }
 
 func (rp *RepositoryProcessor) ValidateEnvironment() error {
-	if err := rp.geminiClient.CheckAuthentication(); err != nil {
-		return fmt.Errorf("gemini CLI authentication check failed: %w", err)
-	}
-	
+	// Note: GeminiClient authentication check is now internal to GeminiAnalyzer
 	queries, err := rp.db.GetCheckQueries()
 	if err != nil {
 		return fmt.Errorf("failed to get check queries: %w", err)
 	}
-	
+
 	if len(queries) == 0 {
 		return fmt.Errorf("no check queries found in database")
 	}
-	
+
 	log.Printf("Environment validation successful: %d check queries found", len(queries))
 	return nil
 }

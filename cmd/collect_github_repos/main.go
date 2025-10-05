@@ -41,6 +41,12 @@ func main() {
 	if err := db.CreateSearchStatesTable(); err != nil {
 		log.Fatalf("Failed to create search_states table: %v", err)
 	}
+	if err := db.CreateRateLimitStateTable(); err != nil {
+		log.Fatalf("Failed to create rate_limit_state table: %v", err)
+	}
+	if err := db.CreateFailedQueueTable(); err != nil {
+		log.Fatalf("Failed to create failed_queue table: %v", err)
+	}
 
 	// Handle list command
 	if *listStates {
