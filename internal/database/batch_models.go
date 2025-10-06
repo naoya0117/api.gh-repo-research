@@ -186,17 +186,12 @@ func (db *DB) GetUncheckedRepositories() ([]Repository, error) {
 	query := `
 		SELECT DISTINCT r.id, r.url, r.name_with_owner, r.stargazer_count, r.primary_language, r.has_dockerfile, r.created_at, r.updated_at
 		FROM repositories r
-		WHERE NOT EXISTS (
-			SELECT 1
-			FROM check_queries cq
-			WHERE NOT EXISTS (
-				SELECT 1
-				FROM easy_checked_repositories ecr
-				WHERE ecr.repository_id = r.id
-				AND ecr.check_query_id = cq.id
-				AND ecr.status = 'completed'
-			)
-		)
+		CROSS JOIN check_queries cq
+		LEFT JOIN easy_checked_repositories ecr
+			ON r.id = ecr.repository_id
+			AND cq.id = ecr.check_query_id
+			AND ecr.status = 'completed'
+		WHERE ecr.id IS NULL
 		ORDER BY r.stargazer_count DESC
 	`
 	rows, err := db.Query(query)
