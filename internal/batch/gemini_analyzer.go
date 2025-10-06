@@ -224,8 +224,9 @@ func (ga *GeminiAnalyzer) handleRateLimit(ctx context.Context, err error, req *A
 
 	log.Printf("Rate limit period ended for Gemini analysis, resuming operations")
 
-	// Don't retry immediately - let the caller handle retry logic
-	return ratelimit.ErrRateLimited
+	// Return nil to indicate successful handling - failed items are already enqueued
+	// and will be retried in the next processFailedQueue call
+	return nil
 }
 
 // GetRateLimitStatus returns current rate limit state
