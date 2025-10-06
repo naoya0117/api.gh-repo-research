@@ -133,6 +133,11 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 		log.Printf("Gemini CLI warning - stderr: %s", stderrStr)
 	}
 
+	// Validate output even on success to avoid saving empty/invalid results
+	if !gc.isValidAnalysisResult(stdoutStr) {
+		return "", fmt.Errorf("gemini-cli produced invalid or empty output: %q", stdoutStr)
+	}
+
 	return stdoutStr, nil
 }
 
@@ -167,9 +172,12 @@ func (gc *GeminiClient) isRateLimitError(err error) bool {
 	rateLimitKeywords := []string{
 		"rate limit",
 		"quota exceeded",
+		"quota limit",
 		"too many requests",
 		"429",
 		"resource_exhausted",
+		"daily quota",
+		"gemini-2.5-pro quota",
 	}
 
 	for _, keyword := range rateLimitKeywords {
