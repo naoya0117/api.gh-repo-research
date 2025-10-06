@@ -98,9 +98,22 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 	cmd.Stderr = &stderr
 	
 	err = cmd.Run()
+
+	// Check stdout first - if there's valid output, consider it a success
+	// even if the process was killed (e.g., due to timeout after writing results)
+	stdoutStr := stdout.String()
+	stderrStr := stderr.String()
+
 	if err != nil {
-		stderrStr := stderr.String()
-		stdoutStr := stdout.String()
+		// If stdout contains a valid analysis result, treat as success despite the error
+		if gc.isValidAnalysisResult(stdoutStr) {
+			log.Printf("Gemini CLI completed with error (%v) but produced valid output, treating as success", err)
+			if stderr.Len() > 0 {
+				log.Printf("Gemini CLI warning - stderr: %s", stderrStr)
+			}
+			return stdoutStr, nil
+		}
+
 		errorMsg := fmt.Sprintf("exit error: %v, stderr: %s, stdout: %s", err, stderrStr, stdoutStr)
 
 		// ログにはエラー詳細を出力
@@ -116,12 +129,11 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 	}
 
 	// 正常時は標準出力のみを返す
-	result := stdout.String()
 	if stderr.Len() > 0 {
-		log.Printf("Gemini CLI warning - stderr: %s", stderr.String())
+		log.Printf("Gemini CLI warning - stderr: %s", stderrStr)
 	}
-	
-	return result, nil
+
+	return stdoutStr, nil
 }
 
 func (gc *GeminiClient) AnalyzeRepositoryWithRetry(repoPath string, query database.CheckQuery, maxRetries int) (string, error) {
@@ -167,6 +179,28 @@ func (gc *GeminiClient) isRateLimitError(err error) bool {
 	}
 
 	return false
+}
+
+// isValidAnalysisResult checks if the output contains a valid analysis result
+func (gc *GeminiClient) isValidAnalysisResult(output string) bool {
+	if len(strings.TrimSpace(output)) == 0 {
+		return false
+	}
+
+	// Check for expected output format markers
+	requiredMarkers := []string{
+		"評価結果",
+		"判断理由",
+	}
+
+	lowerOutput := strings.ToLower(output)
+	for _, marker := range requiredMarkers {
+		if !strings.Contains(lowerOutput, strings.ToLower(marker)) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (gc *GeminiClient) createPromptFile(query database.CheckQuery) (string, error) {

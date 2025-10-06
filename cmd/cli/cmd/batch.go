@@ -83,7 +83,7 @@ func runBatchAnalysis(resume bool, sessionID string) {
 		log.Fatalf("Failed to create tables: %v", err)
 	}
 
-	geminiClient := batch.NewGeminiClient(workDirAbs, 60*time.Second)
+	geminiClient := batch.NewGeminiClient(workDirAbs, 30*time.Minute)
 	gitManager := batch.NewGitManager(workDirAbs, 30*time.Second)
 	repositoryProcessor := batch.NewRepositoryProcessor(db, geminiClient, gitManager, workDirAbs)
 	analyzer := batch.NewAnalyzer(db, repositoryProcessor, workDirAbs)
@@ -126,7 +126,7 @@ func showBatchStatus() {
 		log.Fatalf("Failed to get absolute path for work directory: %v", err)
 	}
 
-	geminiClient := batch.NewGeminiClient(workDirAbs, 60*time.Second)
+	geminiClient := batch.NewGeminiClient(workDirAbs, 30*time.Minute)
 	gitManager := batch.NewGitManager(workDirAbs, 30*time.Second)
 	repositoryProcessor := batch.NewRepositoryProcessor(db, geminiClient, gitManager, workDirAbs)
 	analyzer := batch.NewAnalyzer(db, repositoryProcessor, workDirAbs)
