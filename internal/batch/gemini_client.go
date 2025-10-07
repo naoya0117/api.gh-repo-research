@@ -74,7 +74,12 @@ func (gc *GeminiClient) CheckAuthentication() error {
 }
 
 func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQuery) (string, error) {
-	promptFile, err := gc.createPromptFile(query)
+	return gc.analyzeWithFollowup(repoPath, query, "")
+}
+
+// analyzeWithFollowup performs analysis with optional followup context
+func (gc *GeminiClient) analyzeWithFollowup(repoPath string, query database.CheckQuery, previousOutput string) (string, error) {
+	promptFile, err := gc.createPromptFile(query, previousOutput)
 	if err != nil {
 		return "", err
 	}
@@ -88,7 +93,7 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 	if err != nil {
 		return "", fmt.Errorf("failed to read prompt file: %w", err)
 	}
-	
+
 	cmd := exec.CommandContext(ctx, "npx", "-y", "@google/gemini-cli", "--include-directories", repoPath, "--allowed-tools", "read_file,list_directory,glob,search_file_content,web_fetch,google_web_search", "-p", string(promptContent))
 	cmd.Dir = repoPath
 	cmd.Env = os.Environ()
@@ -96,7 +101,7 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	
+
 	err = cmd.Run()
 
 	// Check stdout first - if there's valid output, consider it a success
@@ -133,8 +138,14 @@ func (gc *GeminiClient) AnalyzeRepository(repoPath string, query database.CheckQ
 		log.Printf("Gemini CLI warning - stderr: %s", stderrStr)
 	}
 
-	// Validate output even on success to avoid saving empty/invalid results
+	// Validate output - if incomplete, try followup
 	if !gc.isValidAnalysisResult(stdoutStr) {
+		// Check if there's partial output (investigation in progress)
+		if gc.hasPartialOutput(stdoutStr) && previousOutput == "" {
+			log.Printf("Gemini CLI produced incomplete output, attempting followup request")
+			// Try followup once
+			return gc.analyzeWithFollowup(repoPath, query, stdoutStr)
+		}
 		return "", fmt.Errorf("gemini-cli produced invalid or empty output: %q", stdoutStr)
 	}
 
@@ -211,13 +222,43 @@ func (gc *GeminiClient) isValidAnalysisResult(output string) bool {
 	return true
 }
 
-func (gc *GeminiClient) createPromptFile(query database.CheckQuery) (string, error) {
+// hasPartialOutput checks if the output contains partial investigation progress
+func (gc *GeminiClient) hasPartialOutput(output string) bool {
+	if len(strings.TrimSpace(output)) == 0 {
+		return false
+	}
+
+	// Indicators that analysis is in progress but incomplete
+	partialMarkers := []string{
+		"調査",
+		"確認",
+		"検索",
+		"ファイルを読み込み",
+		"分析",
+		"リポジトリ",
+	}
+
+	lowerOutput := strings.ToLower(output)
+	for _, marker := range partialMarkers {
+		if strings.Contains(lowerOutput, strings.ToLower(marker)) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (gc *GeminiClient) createPromptFile(query database.CheckQuery, previousOutput string) (string, error) {
 	description := ""
 	if query.Description != nil {
 		description = *query.Description
 	}
 
-	prompt := fmt.Sprintf(`あなたは経験豊富なソフトウェアエンジニアです。このGitリポジトリを分析してください。
+	var prompt string
+
+	if previousOutput == "" {
+		// Initial analysis request
+		prompt = fmt.Sprintf(`あなたは経験豊富なソフトウェアエンジニアです。このGitリポジトリを分析してください。
 
 【分析項目】
 %s
@@ -229,15 +270,35 @@ func (gc *GeminiClient) createPromptFile(query database.CheckQuery) (string, err
 %s
 
 【出力形式】
-以下の形式で回答してください：
+以下の形式で必ず最後に回答してください：
 - 評価結果: 適当/一部適当/不適当[○/△/×](分析の指示に従う)
 - 参考になる箇所: ファイル名-行番号
 - 判断理由: 十分な根拠を示す
 - 主要な発見事項: (箇条書きで3-5点)
 - 推奨される改善点: (具体的な提案)
 
+重要: 調査途中で終了せず、必ず最終的な評価結果を上記の形式で出力してください。
 リポジトリ全体を確認し、具体的で実用的な分析を提供してください。
 `, query.Name, description, query.QueryTemplate)
+	} else {
+		// Followup request to complete analysis
+		prompt = fmt.Sprintf(`先ほどの分析が途中で終了しました。以下は前回の出力内容です：
+
+【前回の出力】
+%s
+
+【指示】
+上記の調査を継続し、必ず以下の形式で最終的な評価結果を出力してください：
+- 評価結果: 適当/一部適当/不適当[○/△/×]
+- 参考になる箇所: ファイル名-行番号
+- 判断理由: 十分な根拠を示す
+- 主要な発見事項: (箇条書きで3-5点)
+- 推奨される改善点: (具体的な提案)
+
+重要: 前回読み込もうとしていたファイルを実際に読み込み、分析を完了させてください。
+必ず最終評価を出力してください。
+`, previousOutput)
+	}
 
 	tmpFile, err := os.CreateTemp("", "gemini_prompt_*.txt")
 	if err != nil {

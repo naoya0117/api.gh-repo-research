@@ -57,7 +57,7 @@ func main() {
 		log.Fatalf("Failed to create tables: %v", err)
 	}
 
-	geminiClient := batch.NewGeminiClient(workDirAbs, 30*time.Minute)
+	geminiClient := batch.NewGeminiClient(workDirAbs, 60*time.Minute)
 	gitManager := batch.NewGitManager(workDirAbs, 30*time.Second)
 	repositoryProcessor := batch.NewRepositoryProcessor(db, geminiClient, gitManager, workDirAbs)
 	analyzer := batch.NewAnalyzer(db, repositoryProcessor, workDirAbs)
