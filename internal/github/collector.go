@@ -18,14 +18,12 @@ const (
 // Collector manages GitHub repository collection with rate limit handling
 type Collector struct {
 	client *Client
-	db     *database.DB
 	queue  *ratelimit.FailedQueue
 }
 
 func NewCollector(client *Client, db *database.DB) *Collector {
 	return &Collector{
 		client: client,
-		db:     db,
 		queue:  ratelimit.NewFailedQueue(db),
 	}
 }
@@ -170,9 +168,4 @@ func (c *Collector) handleRateLimit(ctx context.Context, err error, req *Reposit
 	}
 
 	return nil
-}
-
-// GetRateLimitStatus returns current rate limit state
-func (c *Collector) GetRateLimitStatus(ctx context.Context) (*database.RateLimitState, error) {
-	return c.queue.GetState(ctx, CollectKind)
 }

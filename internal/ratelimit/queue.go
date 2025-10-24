@@ -10,51 +10,40 @@ import (
 	"github.com/naoya0117/shuron2025/api/internal/database"
 )
 
-// FailedQueue manages failed items and rate limit state persistence
+// FailedQueue manages failed items and in-memory rate limit state tracking
 type FailedQueue struct {
-	db *database.DB
+	db          *database.DB
+	sleepStates map[string]*sleepState
 }
 
 func NewFailedQueue(db *database.DB) *FailedQueue {
-	return &FailedQueue{db: db}
-}
-
-// GetState retrieves the rate limit state for a specific kind
-func (fq *FailedQueue) GetState(ctx context.Context, kind string) (*database.RateLimitState, error) {
-	state, err := fq.db.GetRateLimitState(kind)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rate limit state for %s: %w", kind, err)
+	return &FailedQueue{
+		db:          db,
+		sleepStates: make(map[string]*sleepState),
 	}
-
-	if state == nil {
-		// Return a default state if none exists
-		return &database.RateLimitState{
-			Kind:       kind,
-			IsSleeping: false,
-		}, nil
-	}
-
-	return state, nil
 }
 
 // SetState atomically updates the rate limit state
 func (fq *FailedQueue) SetState(ctx context.Context, kind string, isSleeping bool, resumeAt *time.Time, reason string) error {
-	state := database.RateLimitState{
-		Kind:       kind,
-		IsSleeping: isSleeping,
-		ResumeAt:   resumeAt,
-		Reason:     reason,
+	if !isSleeping {
+		delete(fq.sleepStates, kind)
+		log.Printf("Rate limit state updated: kind=%s, sleeping=false", kind)
+		return nil
 	}
 
-	if err := fq.db.SetRateLimitState(state); err != nil {
-		return fmt.Errorf("failed to set rate limit state for %s: %w", kind, err)
+	fq.sleepStates[kind] = &sleepState{
+		isSleeping: true,
+		resumeAt:   resumeAt,
+		reason:     reason,
 	}
 
 	if isSleeping {
+		resumeText := "unknown"
+		if resumeAt != nil {
+			resumeText = resumeAt.Format("2006-01-02 15:04:05 MST")
+		}
 		log.Printf("Rate limit state updated: kind=%s, sleeping=true, resumeAt=%s, reason=%s",
-			kind, resumeAt.Format("2006-01-02 15:04:05 MST"), reason)
-	} else {
-		log.Printf("Rate limit state updated: kind=%s, sleeping=false", kind)
+			kind, resumeText, reason)
 	}
 
 	return nil
@@ -118,25 +107,21 @@ func (fq *FailedQueue) ClearAll(ctx context.Context, kind string) error {
 
 // WaitUntilResumeTime waits until the resume time if currently sleeping
 func (fq *FailedQueue) WaitUntilResumeTime(ctx context.Context, kind string) error {
-	state, err := fq.GetState(ctx, kind)
-	if err != nil {
-		return err
-	}
-
-	if !state.IsSleeping {
+	state, ok := fq.sleepStates[kind]
+	if !ok || !state.isSleeping {
 		log.Printf("Kind %s is not sleeping, no wait needed", kind)
 		return nil
 	}
 
-	if state.ResumeAt == nil {
+	if state.resumeAt == nil {
 		log.Printf("Warning: kind %s is sleeping but has no resume time, clearing sleep state", kind)
 		return fq.SetState(ctx, kind, false, nil, "")
 	}
 
 	log.Printf("Kind %s is sleeping, waiting until resume time: %s",
-		kind, state.ResumeAt.Format("2006-01-02 15:04:05 MST"))
+		kind, state.resumeAt.Format("2006-01-02 15:04:05 MST"))
 
-	if err := SleepUntilCtx(ctx, *state.ResumeAt); err != nil {
+	if err := SleepUntilCtx(ctx, *state.resumeAt); err != nil {
 		return err
 	}
 
@@ -147,4 +132,10 @@ func (fq *FailedQueue) WaitUntilResumeTime(ctx context.Context, kind string) err
 
 	log.Printf("Kind %s resumed after rate limit wait", kind)
 	return nil
+}
+
+type sleepState struct {
+	isSleeping bool
+	resumeAt   *time.Time
+	reason     string
 }

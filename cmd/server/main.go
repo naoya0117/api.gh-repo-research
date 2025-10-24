@@ -31,8 +31,7 @@ func main() {
 	}
 	defer db.Close()
 
-	// Create tables
-	if err := db.CreateRepositoriesTable(); err != nil {
+	if err := db.EnsureCoreTables(); err != nil {
 		log.Fatalf("Failed to create tables: %v", err)
 	}
 

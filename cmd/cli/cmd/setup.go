@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"log"
-	"os"
+	"strings"
 	"time"
 
 	"github.com/naoya0117/shuron2025/api/internal/database"
@@ -18,6 +18,14 @@ var setupCmd = &cobra.Command{
 	Long:  `Perform setup operations like initializing check queries.`,
 }
 
+var setupTablesCmd = &cobra.Command{
+	Use:   "tables",
+	Short: "Create all required database tables",
+	Run: func(cmd *cobra.Command, args []string) {
+		setupTables()
+	},
+}
+
 var setupQueriesCmd = &cobra.Command{
 	Use:   "queries",
 	Short: "Setup sample check queries",
@@ -27,36 +35,39 @@ var setupQueriesCmd = &cobra.Command{
 }
 
 func init() {
+	setupCmd.AddCommand(setupTablesCmd)
 	setupCmd.AddCommand(setupQueriesCmd)
 	setupCmd.PersistentFlags().StringVar(&setupDbURL, "db-url", "", "Database URL (if not set, uses DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME environment variables)")
 }
 
-func setupCheckQueries() {
+func setupTables() {
 	startTime := time.Now()
-	
-	if setupDbURL == "" {
-		setupDbURL = os.Getenv("DATABASE_URL")
-	}
 
-	db, err := database.Connect(setupDbURL)
+	db, err := connectDatabase(setupDbURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Database setup failed: %v", err)
 	}
 	defer db.Close()
 
-	// Create necessary tables
-	log.Println("Creating necessary tables...")
-	if err := db.CreateRepositoriesTable(); err != nil {
-		log.Printf("Warning: Failed to create repositories table: %v", err)
+	if err := db.EnsureCoreTables(); err != nil {
+		log.Fatalf("Failed to create tables: %v", err)
 	}
-	if err := db.CreateCheckQueriesTable(); err != nil {
-		log.Fatalf("Failed to create check_queries table: %v", err)
+
+	log.Printf("✓ Tables ensured: %s", strings.Join(database.CoreTableNames, ", "))
+	log.Printf("Completed in %v", time.Since(startTime))
+}
+
+func setupCheckQueries() {
+	startTime := time.Now()
+
+	db, err := connectDatabase(setupDbURL)
+	if err != nil {
+		log.Fatalf("Database setup failed: %v", err)
 	}
-	if err := db.CreateEasyCheckedRepositoriesTable(); err != nil {
-		log.Printf("Warning: Failed to create easy_checked_repositories table: %v", err)
-	}
-	if err := db.CreateBatchProgressTable(); err != nil {
-		log.Printf("Warning: Failed to create batch_progress table: %v", err)
+	defer db.Close()
+
+	if err := db.EnsureCoreTables(); err != nil {
+		log.Fatalf("Failed to create tables: %v", err)
 	}
 
 	log.Println("Setting up sample check queries...")
@@ -103,7 +114,7 @@ func setupCheckQueries() {
 
 	duration := time.Since(startTime)
 	log.Println("Setup completed successfully!")
-	
+
 	discordClient := discord.NewClient()
 	if err := discordClient.SendCompletionNotification("setup queries", duration); err != nil {
 		log.Printf("Failed to send Discord notification: %v", err)

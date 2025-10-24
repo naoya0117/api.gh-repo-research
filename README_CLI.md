@@ -1,6 +1,6 @@
 # Shuron CLI Tool
 
-このCLIツールは、修論プロジェクトのGitHubリポジトリ収集・分析機能を統合したコマンドラインツールです。
+このCLIツールは、修論プロジェクトのGitHubリポジトリ収集や関連テーブル管理機能を統合したコマンドラインツールです。
 
 ## ビルド
 
@@ -32,29 +32,28 @@ go build -o shuron-cli ./cmd/cli
 ./shuron-cli collect delete --session-id=<SESSION_ID>
 ```
 
-### 2. バッチ分析
+### 2. セットアップ
 
-#### 新しいバッチ分析を開始
+#### テーブルの初期化
 ```bash
-./shuron-cli batch start --work-dir=tmp_repositories --db-url=$DATABASE_URL
+./shuron-cli setup tables --db-url=$DATABASE_URL
 ```
-
-#### バッチ分析を再開
-```bash
-./shuron-cli batch resume --session-id=<SESSION_ID>
-```
-
-#### バッチ分析状況を確認
-```bash
-./shuron-cli batch status
-```
-
-### 3. セットアップ
 
 #### チェッククエリの初期化
 ```bash
 ./shuron-cli setup queries --db-url=$DATABASE_URL
 ```
+
+`setup tables` で作成されるテーブル一覧:
+
+- `repositories`
+- `search_states`
+- `check_queries`
+- `my_checked_repositories`
+- `repository_webapp_checks`
+- `failed_queue`
+
+`shuron-cli collect` や GraphQL サーバーなど、既存のコマンドは実行時にこれらのテーブルを自動で確認し、存在しなければ作成します。
 
 ## 環境変数
 
@@ -68,15 +67,4 @@ go build -o shuron-cli ./cmd/cli
 - `DB_PASSWORD`: データベースパスワード（デフォルト: password）
 - `DB_NAME`: データベース名（デフォルト: gh-repo-research）
 
-## 従来のコマンドとの対応
-
-| 従来のコマンド | 新しいコマンド |
-|---|---|
-| `./collect_github_repos` | `./shuron-cli collect start` |
-| `./collect_github_repos --session=<ID>` | `./shuron-cli collect resume --session-id=<ID>` |
-| `./collect_github_repos --list` | `./shuron-cli collect list` |
-| `./collect_github_repos --delete=<ID>` | `./shuron-cli collect delete --session-id=<ID>` |
-| `./batch_analyzer --start` | `./shuron-cli batch start` |
-| `./batch_analyzer --resume --session-id=<ID>` | `./shuron-cli batch resume --session-id=<ID>` |
-| `./batch_analyzer --status` | `./shuron-cli batch status` |
-| `./setup_check_queries` | `./shuron-cli setup queries` |
+従来の単体コマンド（`collect_github_repos` や `setup_check_queries` など）は廃止され、現在は `shuron-cli` に統合されています。

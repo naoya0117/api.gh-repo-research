@@ -10,8 +10,5 @@ var WebApplicationLanguages = []string{
 	"PHP",
 	"Ruby",
 	"Go",
-	"C#",
-	"HTML",
-	"CSS",
 	"Blade",
 }

@@ -11,7 +11,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -trimpath -o /go-bin/${PACKAGE_NAME} ./cmd/${PACKAGE_NAME}/.
 
 # 内部でgemini-cliを利用するため，nodeのイメージを利用
-FROM node:24.9-bookworm-slim
+FROM debian:bookworm-slim
 
 ARG PACKAGE_NAME=server
 
