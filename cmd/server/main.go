@@ -7,6 +7,7 @@ import (
 
 	"github.com/naoya0117/shuron2025/api/graph"
 	"github.com/naoya0117/shuron2025/api/internal/database"
+	adminserver "github.com/naoya0117/shuron2025/api/internal/server"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
@@ -37,6 +38,11 @@ func main() {
 
 	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{DB: db}}))
 
+	adminSrv, err := adminserver.NewAdminServer(db)
+	if err != nil {
+		log.Fatalf("Failed to initialize admin server: %v", err)
+	}
+
 	srv.AddTransport(transport.Options{})
 	srv.AddTransport(transport.GET{})
 	srv.AddTransport(transport.POST{})
@@ -48,6 +54,8 @@ func main() {
 		Cache: lru.New[string](100),
 	})
 
+	http.HandleFunc("/admin/check-queries", adminSrv.HandleCheckQueries)
+	http.HandleFunc("/admin/check-results", adminSrv.HandleCheckResults)
 	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	http.Handle("/query", srv)
 
