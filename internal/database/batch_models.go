@@ -67,6 +67,9 @@ var CoreTableNames = []string{
 	"my_checked_repositories",
 	"repository_webapp_checks",
 	"failed_queue",
+	"k8s_patterns",
+	"check_items",
+	"check_results",
 }
 
 func (db *DB) CreateCheckQueriesTable() error {
@@ -106,6 +109,51 @@ func (db *DB) CreateRepositoryWebAppChecksTable() error {
 			is_web_app BOOLEAN,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`
+	_, err := db.Exec(query)
+	return err
+}
+
+func (db *DB) CreateK8sPatternsTable() error {
+	query := `
+		CREATE TABLE IF NOT EXISTS k8s_patterns (
+			id SERIAL PRIMARY KEY,
+			name VARCHAR(255) NOT NULL UNIQUE,
+			description TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`
+	_, err := db.Exec(query)
+	return err
+}
+
+func (db *DB) CreateCheckItemsTable() error {
+	query := `
+		CREATE TABLE IF NOT EXISTS check_items (
+			id SERIAL PRIMARY KEY,
+			pattern_id INTEGER NOT NULL REFERENCES k8s_patterns(id) ON DELETE CASCADE,
+			name VARCHAR(255) NOT NULL,
+			description TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(pattern_id, name)
+		)
+	`
+	_, err := db.Exec(query)
+	return err
+}
+
+func (db *DB) CreateCheckResultsTable() error {
+	query := `
+		CREATE TABLE IF NOT EXISTS check_results (
+			id SERIAL PRIMARY KEY,
+			repository_id INTEGER NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+			check_item_id INTEGER NOT NULL REFERENCES check_items(id) ON DELETE CASCADE,
+			result BOOLEAN NOT NULL,
+			memo TEXT,
+			checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(repository_id, check_item_id)
 		)
 	`
 	_, err := db.Exec(query)
@@ -395,6 +443,9 @@ func (db *DB) EnsureCoreTables() error {
 		{"my_checked_repositories", db.CreateMyCheckedRepositoriesTable},
 		{"repository_webapp_checks", db.CreateRepositoryWebAppChecksTable},
 		{"failed_queue", db.CreateFailedQueueTable},
+		{"k8s_patterns", db.CreateK8sPatternsTable},
+		{"check_items", db.CreateCheckItemsTable},
+		{"check_results", db.CreateCheckResultsTable},
 	}
 
 	for _, creator := range creators {
