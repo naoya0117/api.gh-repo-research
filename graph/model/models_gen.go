@@ -2,25 +2,64 @@
 
 package model
 
+import (
+	"time"
+)
+
+type AdminDashboard struct {
+	CheckQueries  []*CheckQuery `json:"checkQueries"`
+	Repositories  []*Repository `json:"repositories"`
+	MyChecks      []*MyCheck    `json:"myChecks"`
+	ResultOptions []string      `json:"resultOptions"`
+}
+
+type CheckQuery struct {
+	ID          int32     `json:"id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
 type Mutation struct {
 }
 
-type NewTodo struct {
-	Text   string `json:"text"`
-	UserID string `json:"userId"`
+type MutationResult struct {
+	Success bool    `json:"success"`
+	Message *string `json:"message,omitempty"`
+}
+
+type MyCheck struct {
+	RepositoryID   int32     `json:"repositoryID"`
+	RepositoryName string    `json:"repositoryName"`
+	CheckQueryID   int32     `json:"checkQueryID"`
+	CheckQueryName string    `json:"checkQueryName"`
+	Result         string    `json:"result"`
+	Memo           *string   `json:"memo,omitempty"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+	IsWebApp       *bool     `json:"isWebApp,omitempty"`
+}
+
+type NewCheckQueryInput struct {
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+}
+
+type NewCheckResultInput struct {
+	RepositoryID int32   `json:"repositoryID"`
+	CheckQueryID int32   `json:"checkQueryID"`
+	Result       string  `json:"result"`
+	Memo         *string `json:"memo,omitempty"`
+	IsWebApp     bool    `json:"isWebApp"`
 }
 
 type Query struct {
 }
 
-type Todo struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
-	Done bool   `json:"done"`
-	User *User  `json:"user"`
-}
-
-type User struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+type Repository struct {
+	ID              int32     `json:"id"`
+	NameWithOwner   string    `json:"nameWithOwner"`
+	StargazerCount  int32     `json:"stargazerCount"`
+	PrimaryLanguage *string   `json:"primaryLanguage,omitempty"`
+	HasDockerfile   bool      `json:"hasDockerfile"`
+	CreatedAt       time.Time `json:"createdAt"`
 }

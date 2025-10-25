@@ -1,0 +1,271 @@
+{{define "admin.gohtml"}}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>チェッククエリ管理</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f6f8;
+            color: #222;
+        }
+        header {
+            background: #1f2937;
+            color: #fff;
+            padding: 16px 24px;
+        }
+        main {
+            padding: 24px;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        h2 {
+            margin-top: 32px;
+            font-size: 20px;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 8px;
+        }
+        form {
+            background: #fff;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 24px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+        textarea {
+            min-height: 80px;
+        }
+        button {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+        }
+        th {
+            background: #f3f4f6;
+            font-weight: 600;
+        }
+        .flash {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #34d399;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 24px;
+        }
+        .error {
+            background: #fee2e2;
+            color: #b91c1c;
+            border: 1px solid #fca5a5;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 24px;
+        }
+        .memo {
+            white-space: pre-wrap;
+        }
+        .table-container {
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>チェッククエリ管理</h1>
+</header>
+<main>
+    {{if .FlashMessage}}
+    <div class="flash">{{.FlashMessage}}</div>
+    {{end}}
+    {{if .ErrorMessage}}
+    <div class="error">{{.ErrorMessage}}</div>
+    {{end}}
+
+    <section>
+        <h2>チェッククエリの登録</h2>
+        <form method="post" action="/admin/check-queries">
+            <label for="name">名前 *</label>
+            <input type="text" id="name" name="name" required>
+
+            <label for="description">説明</label>
+            <textarea id="description" name="description" placeholder="チェック内容の概要"></textarea>
+
+            <button type="submit">登録する</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>登録済みチェッククエリ</h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>名前</th>
+                        <th>説明</th>
+                        <th>作成日時</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{if .CheckQueries}}
+                        {{range .CheckQueries}}
+                        <tr>
+                            <td>{{.ID}}</td>
+                            <td>{{.Name}}</td>
+                            <td>{{if .Description}}{{.Description}}{{else}}-{{end}}</td>
+                            <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
+                        </tr>
+                        {{end}}
+                    {{else}}
+                        <tr>
+                            <td colspan="4">登録されたチェッククエリはありません。</td>
+                        </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section>
+        <h2>手動チェック結果の登録</h2>
+        <form method="post" action="/admin/check-results">
+            <label for="repository_id">リポジトリID *</label>
+            <input type="number" id="repository_id" name="repository_id" required min="1">
+
+            <label for="check_query_id">チェッククエリID *</label>
+            <input type="number" id="check_query_id" name="check_query_id" required min="1">
+
+            <label for="result">結果 *</label>
+            <select id="result" name="result" required>
+                <option value="" disabled selected>選択してください</option>
+                {{range .ResultOptions}}
+                <option value="{{.}}">{{.}}</option>
+                {{end}}
+            </select>
+
+            <label for="memo">メモ</label>
+            <textarea id="memo" name="memo" placeholder="補足情報があれば記入"></textarea>
+
+            <label for="is_web_app">Webアプリ判定 *</label>
+            <select id="is_web_app" name="is_web_app" required>
+                <option value="" disabled selected>選択してください</option>
+                <option value="true">True</option>
+                <option value="false">False</option>
+            </select>
+
+            <button type="submit">結果を保存する</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>最近の判定結果 (最新50件)</h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>リポジトリID</th>
+                        <th>リポジトリ</th>
+                        <th>チェッククエリ</th>
+                        <th>結果</th>
+                        <th>Webアプリ</th>
+                        <th>メモ</th>
+                        <th>更新日時</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{if .MyChecks}}
+                        {{range .MyChecks}}
+                        <tr>
+                            <td>{{.RepositoryID}}</td>
+                            <td>{{.RepositoryName}}</td>
+                            <td>{{.CheckQueryName}} (ID: {{.CheckQueryID}})</td>
+                            <td>{{.Result}}</td>
+                            <td>{{boolLabel .IsWebApp}}</td>
+                            <td class="memo">{{if .Memo}}{{.Memo}}{{else}}-{{end}}</td>
+                            <td>{{.UpdatedAt.Format "2006-01-02 15:04"}}</td>
+                        </tr>
+                        {{end}}
+                    {{else}}
+                        <tr>
+                            <td colspan="7">判定結果はまだ登録されていません。</td>
+                        </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section>
+        <h2>リポジトリ一覧 (上位50件)</h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name With Owner</th>
+                        <th>スター数</th>
+                        <th>主要言語</th>
+                        <th>Dockerfile</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{if .Repositories}}
+                        {{range .Repositories}}
+                        <tr>
+                            <td>{{.ID}}</td>
+                            <td>{{.NameWithOwner}}</td>
+                            <td>{{.StargazerCount}}</td>
+                            <td>{{if .PrimaryLanguage}}{{.PrimaryLanguage}}{{else}}-{{end}}</td>
+                            <td>{{if .HasDockerfile}}Yes{{else}}No{{end}}</td>
+                        </tr>
+                        {{end}}
+                    {{else}}
+                        <tr>
+                            <td colspan="5">登録済みのリポジトリはありません。</td>
+                        </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+</body>
+</html>
+{{end}}

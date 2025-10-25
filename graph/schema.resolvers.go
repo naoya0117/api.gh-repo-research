@@ -7,18 +7,177 @@ package graph
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/naoya0117/shuron2025/api/graph/model"
+	"github.com/naoya0117/shuron2025/api/internal/database"
 )
 
-// CreateTodo is the resolver for the createTodo field.
-func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
+var resultOptions = []string{"○", "×", "△"}
+
+// CreateCheckQuery is the resolver for the createCheckQuery field.
+func (r *mutationResolver) CreateCheckQuery(ctx context.Context, input model.NewCheckQueryInput) (*model.MutationResult, error) {
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return nil, fmt.Errorf("名前は必須です")
+	}
+
+	var descPtr *string
+	if input.Description != nil {
+		desc := strings.TrimSpace(*input.Description)
+		if desc != "" {
+			descPtr = &desc
+		}
+	}
+
+	if _, err := r.DB.InsertCheckQuery(name, descPtr); err != nil {
+		return nil, fmt.Errorf("チェッククエリの登録に失敗しました: %w", err)
+	}
+
+	message := "チェッククエリを登録しました"
+	return &model.MutationResult{
+		Success: true,
+		Message: &message,
+	}, nil
 }
 
-// Todos is the resolver for the todos field.
-func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todos - todos"))
+// CreateCheckResult is the resolver for the createCheckResult field.
+func (r *mutationResolver) CreateCheckResult(ctx context.Context, input model.NewCheckResultInput) (*model.MutationResult, error) {
+	repositoryID := int(input.RepositoryID)
+	checkQueryID := int(input.CheckQueryID)
+
+	if repositoryID <= 0 {
+		return nil, fmt.Errorf("リポジトリIDが不正です")
+	}
+	if checkQueryID <= 0 {
+		return nil, fmt.Errorf("チェッククエリIDが不正です")
+	}
+
+	result := strings.TrimSpace(input.Result)
+	if !isValidResult(result) {
+		return nil, fmt.Errorf("結果は○, ×, △のいずれかを選択してください")
+	}
+
+	var memoPtr *string
+	if input.Memo != nil {
+		memo := strings.TrimSpace(*input.Memo)
+		if memo != "" {
+			memoPtr = &memo
+		}
+	}
+
+	if err := r.DB.UpsertMyCheckedRepository(repositoryID, checkQueryID, result, memoPtr); err != nil {
+		return nil, fmt.Errorf("判定結果の保存に失敗しました: %w", err)
+	}
+
+	if err := r.DB.UpsertRepositoryWebAppCheck(repositoryID, input.IsWebApp); err != nil {
+		return nil, fmt.Errorf("Webアプリ判定の保存に失敗しました: %w", err)
+	}
+
+	message := "判定結果を登録しました"
+	return &model.MutationResult{
+		Success: true,
+		Message: &message,
+	}, nil
+}
+
+// AdminDashboard is the resolver for the adminDashboard field.
+func (r *queryResolver) AdminDashboard(ctx context.Context, limit *int32) (*model.AdminDashboard, error) {
+	l := 50
+	if limit != nil && *limit > 0 {
+		l = int(*limit)
+	}
+
+	checkQueries, err := r.DB.GetCheckQueries()
+	if err != nil {
+		return nil, fmt.Errorf("チェッククエリの取得に失敗しました: %w", err)
+	}
+
+	repos, err := r.DB.GetRepositories(l, 0)
+	if err != nil {
+		return nil, fmt.Errorf("リポジトリ一覧の取得に失敗しました: %w", err)
+	}
+
+	checkSummaries, err := r.DB.ListMyCheckSummaries(l)
+	if err != nil {
+		return nil, fmt.Errorf("判定履歴の取得に失敗しました: %w", err)
+	}
+
+	return &model.AdminDashboard{
+		CheckQueries:  convertCheckQueries(checkQueries),
+		Repositories:  convertRepositories(repos),
+		MyChecks:      convertMyChecks(checkSummaries),
+		ResultOptions: resultOptions,
+	}, nil
+}
+
+func convertCheckQueries(queries []database.CheckQuery) []*model.CheckQuery {
+	result := make([]*model.CheckQuery, 0, len(queries))
+	for _, q := range queries {
+		var description *string
+		if q.Description != nil && strings.TrimSpace(*q.Description) != "" {
+			desc := strings.TrimSpace(*q.Description)
+			description = &desc
+		}
+		result = append(result, &model.CheckQuery{
+			ID:          int32(q.ID),
+			Name:        q.Name,
+			Description: description,
+			CreatedAt:   q.CreatedAt,
+		})
+	}
+	return result
+}
+
+func convertRepositories(repos []database.Repository) []*model.Repository {
+	result := make([]*model.Repository, 0, len(repos))
+	for _, repo := range repos {
+		var primaryLanguage *string
+		if repo.PrimaryLanguage != nil && strings.TrimSpace(*repo.PrimaryLanguage) != "" {
+			lang := strings.TrimSpace(*repo.PrimaryLanguage)
+			primaryLanguage = &lang
+		}
+		result = append(result, &model.Repository{
+			ID:              int32(repo.ID),
+			NameWithOwner:   repo.NameWithOwner,
+			StargazerCount:  int32(repo.StargazerCount),
+			PrimaryLanguage: primaryLanguage,
+			HasDockerfile:   repo.HasDockerfile,
+			CreatedAt:       repo.CreatedAt,
+		})
+	}
+	return result
+}
+
+func convertMyChecks(checks []database.MyCheckSummary) []*model.MyCheck {
+	result := make([]*model.MyCheck, 0, len(checks))
+	for _, c := range checks {
+		var memo *string
+		if c.Memo != nil && strings.TrimSpace(*c.Memo) != "" {
+			m := strings.TrimSpace(*c.Memo)
+			memo = &m
+		}
+		result = append(result, &model.MyCheck{
+			RepositoryID:   int32(c.RepositoryID),
+			RepositoryName: c.RepositoryName,
+			CheckQueryID:   int32(c.CheckQueryID),
+			CheckQueryName: c.CheckQueryName,
+			Result:         c.Result,
+			Memo:           memo,
+			UpdatedAt:      c.UpdatedAt,
+			IsWebApp:       c.IsWebApp,
+		})
+	}
+	return result
+}
+
+func isValidResult(value string) bool {
+	for _, opt := range resultOptions {
+		if opt == value {
+			return true
+		}
+	}
+	return false
 }
 
 // Mutation returns MutationResolver implementation.

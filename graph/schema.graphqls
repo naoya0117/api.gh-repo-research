@@ -1,28 +1,62 @@
-# GraphQL schema example
-#
-# https://gqlgen.com/getting-started/
+scalar Time
 
-type Todo {
-  id: ID!
-  text: String!
-  done: Boolean!
-  user: User!
+type CheckQuery {
+  id: Int!
+  name: String!
+  description: String
+  createdAt: Time!
 }
 
-type User {
-  id: ID!
+type Repository {
+  id: Int!
+  nameWithOwner: String!
+  stargazerCount: Int!
+  primaryLanguage: String
+  hasDockerfile: Boolean!
+  createdAt: Time!
+}
+
+type MyCheck {
+  repositoryID: Int!
+  repositoryName: String!
+  checkQueryID: Int!
+  checkQueryName: String!
+  result: String!
+  memo: String
+  updatedAt: Time!
+  isWebApp: Boolean
+}
+
+type AdminDashboard {
+  checkQueries: [CheckQuery!]!
+  repositories: [Repository!]!
+  myChecks: [MyCheck!]!
+  resultOptions: [String!]!
+}
+
+type MutationResult {
+  success: Boolean!
+  message: String
+}
+
+input NewCheckQueryInput {
   name: String!
+  description: String
+}
+
+input NewCheckResultInput {
+  repositoryID: Int!
+  checkQueryID: Int!
+  result: String!
+  memo: String
+  isWebApp: Boolean!
 }
 
 type Query {
-  todos: [Todo!]!
-}
-
-input NewTodo {
-  text: String!
-  userId: String!
+  adminDashboard(limit: Int = 50): AdminDashboard!
 }
 
 type Mutation {
-  createTodo(input: NewTodo!): Todo!
+  createCheckQuery(input: NewCheckQueryInput!): MutationResult!
+  createCheckResult(input: NewCheckResultInput!): MutationResult!
 }
