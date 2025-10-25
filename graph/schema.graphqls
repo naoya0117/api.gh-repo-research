@@ -27,6 +27,8 @@ type Repository {
   primaryLanguage: String
   hasDockerfile: Boolean!
   createdAt: Time!
+  isWebApp: Boolean
+  webAppCheckedAt: Time
 }
 
 # Check result for a specific repository and check item
@@ -63,15 +65,56 @@ input NewCheckResultInput {
   memo: String
 }
 
+# Input for saving repository evaluation (WebApp + CheckResults)
+input RepositoryEvaluationInput {
+  repositoryId: Int!
+  isWebApp: Boolean!
+  checkResults: [CheckResultInput!]
+}
+
+# Input for individual check result (without repositoryId)
+input CheckResultInput {
+  checkItemId: Int!
+  result: Boolean!
+  memo: String
+}
+
+# Input for creating/updating a pattern
+input K8sPatternInput {
+  name: String!
+  description: String
+}
+
+# Input for creating/updating a check item
+input CheckItemInput {
+  patternId: Int!
+  name: String!
+  description: String
+}
+
 type Query {
   adminDashboard(limit: Int = 50): AdminDashboard!
   patterns: [K8sPattern!]!
   checkItems(patternId: Int): [CheckItem!]!
   checkResults(repositoryId: Int): [CheckResult!]!
+  repositories(limit: Int = 100, offset: Int = 0): [Repository!]!
+  repository(id: Int!): Repository
 }
 
 type Mutation {
+  # Check result mutations
   createCheckResult(input: NewCheckResultInput!): MutationResult!
   updateCheckResult(id: Int!, input: NewCheckResultInput!): MutationResult!
   deleteCheckResult(id: Int!): MutationResult!
+  saveRepositoryEvaluation(input: RepositoryEvaluationInput!): MutationResult!
+
+  # Pattern mutations
+  createPattern(input: K8sPatternInput!): MutationResult!
+  updatePattern(id: Int!, input: K8sPatternInput!): MutationResult!
+  deletePattern(id: Int!): MutationResult!
+
+  # Check item mutations
+  createCheckItem(input: CheckItemInput!): MutationResult!
+  updateCheckItem(id: Int!, input: CheckItemInput!): MutationResult!
+  deleteCheckItem(id: Int!): MutationResult!
 }

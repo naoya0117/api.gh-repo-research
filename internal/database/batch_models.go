@@ -13,6 +13,34 @@ type CheckQuery struct {
 	CreatedAt   time.Time `json:"createdAt"`
 }
 
+// K8sPattern represents a Kubernetes pattern
+type K8sPattern struct {
+	ID          int       `json:"id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+// CheckItem represents a specific check item for a pattern
+type CheckItem struct {
+	ID          int       `json:"id"`
+	PatternID   int       `json:"patternId"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+// CheckResult represents the evaluation result for a repository check item
+type CheckResult struct {
+	ID           int       `json:"id"`
+	RepositoryID int       `json:"repositoryId"`
+	CheckItemID  int       `json:"checkItemId"`
+	Result       bool      `json:"result"`
+	Memo         *string   `json:"memo"`
+	CheckedAt    time.Time `json:"checkedAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
 type MyCheckSummary struct {
 	RepositoryID   int       `json:"repositoryId"`
 	RepositoryName string    `json:"repositoryName"`
@@ -241,14 +269,20 @@ func (db *DB) ListMyCheckSummaries(limit int) ([]MyCheckSummary, error) {
 
 func (db *DB) GetRepository(id int) (*Repository, error) {
 	query := `
-		SELECT id, url, name_with_owner, stargazer_count, primary_language, has_dockerfile, created_at, updated_at
-		FROM repositories
-		WHERE id = $1
+		SELECT
+			r.id, r.url, r.name_with_owner, r.stargazer_count, r.primary_language,
+			r.has_dockerfile, r.created_at, r.updated_at,
+			w.is_web_app, w.updated_at as web_app_checked_at
+		FROM repositories r
+		LEFT JOIN repository_webapp_checks w ON r.id = w.id
+		WHERE r.id = $1
 	`
 	row := db.QueryRow(query, id)
 
 	var repo Repository
 	var primaryLanguage sql.NullString
+	var isWebApp sql.NullBool
+	var webAppCheckedAt sql.NullTime
 
 	err := row.Scan(
 		&repo.ID,
@@ -259,6 +293,8 @@ func (db *DB) GetRepository(id int) (*Repository, error) {
 		&repo.HasDockerfile,
 		&repo.CreatedAt,
 		&repo.UpdatedAt,
+		&isWebApp,
+		&webAppCheckedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -269,6 +305,12 @@ func (db *DB) GetRepository(id int) (*Repository, error) {
 
 	if primaryLanguage.Valid {
 		repo.PrimaryLanguage = &primaryLanguage.String
+	}
+	if isWebApp.Valid {
+		repo.IsWebApp = &isWebApp.Bool
+	}
+	if webAppCheckedAt.Valid {
+		repo.WebAppCheckedAt = &webAppCheckedAt.Time
 	}
 
 	return &repo, nil
@@ -361,4 +403,236 @@ func (db *DB) EnsureCoreTables() error {
 		}
 	}
 	return nil
+}
+
+// ===== K8s Patterns CRUD =====
+
+// GetK8sPatterns retrieves all patterns
+func (db *DB) GetK8sPatterns() ([]K8sPattern, error) {
+	query := `
+		SELECT id, name, description, created_at
+		FROM k8s_patterns
+		ORDER BY id
+	`
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var patterns []K8sPattern
+	for rows.Next() {
+		var p K8sPattern
+		var description sql.NullString
+		if err := rows.Scan(&p.ID, &p.Name, &description, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		if description.Valid {
+			p.Description = &description.String
+		}
+		patterns = append(patterns, p)
+	}
+	return patterns, rows.Err()
+}
+
+// GetK8sPattern retrieves a single pattern by ID
+func (db *DB) GetK8sPattern(id int) (*K8sPattern, error) {
+	query := `
+		SELECT id, name, description, created_at
+		FROM k8s_patterns
+		WHERE id = $1
+	`
+	var p K8sPattern
+	var description sql.NullString
+	err := db.QueryRow(query, id).Scan(&p.ID, &p.Name, &description, &p.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if description.Valid {
+		p.Description = &description.String
+	}
+	return &p, nil
+}
+
+// CreateK8sPattern creates a new pattern
+func (db *DB) CreateK8sPattern(name string, description *string) (int, error) {
+	query := `
+		INSERT INTO k8s_patterns (name, description)
+		VALUES ($1, $2)
+		RETURNING id
+	`
+	var id int
+	err := db.QueryRow(query, name, description).Scan(&id)
+	return id, err
+}
+
+// UpdateK8sPattern updates an existing pattern
+func (db *DB) UpdateK8sPattern(id int, name string, description *string) error {
+	query := `
+		UPDATE k8s_patterns
+		SET name = $2, description = $3
+		WHERE id = $1
+	`
+	_, err := db.Exec(query, id, name, description)
+	return err
+}
+
+// DeleteK8sPattern deletes a pattern (cascade deletes check items)
+func (db *DB) DeleteK8sPattern(id int) error {
+	query := `DELETE FROM k8s_patterns WHERE id = $1`
+	_, err := db.Exec(query, id)
+	return err
+}
+
+// ===== Check Items CRUD =====
+
+// GetCheckItems retrieves check items, optionally filtered by pattern_id
+func (db *DB) GetCheckItems(patternID *int) ([]CheckItem, error) {
+	var query string
+	var args []interface{}
+
+	if patternID != nil {
+		query = `
+			SELECT id, pattern_id, name, description, created_at
+			FROM check_items
+			WHERE pattern_id = $1
+			ORDER BY id
+		`
+		args = append(args, *patternID)
+	} else {
+		query = `
+			SELECT id, pattern_id, name, description, created_at
+			FROM check_items
+			ORDER BY pattern_id, id
+		`
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []CheckItem
+	for rows.Next() {
+		var item CheckItem
+		var description sql.NullString
+		if err := rows.Scan(&item.ID, &item.PatternID, &item.Name, &description, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		if description.Valid {
+			item.Description = &description.String
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+// CreateCheckItem creates a new check item
+func (db *DB) CreateCheckItem(patternID int, name string, description *string) (int, error) {
+	query := `
+		INSERT INTO check_items (pattern_id, name, description)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`
+	var id int
+	err := db.QueryRow(query, patternID, name, description).Scan(&id)
+	return id, err
+}
+
+// UpdateCheckItem updates an existing check item
+func (db *DB) UpdateCheckItem(id int, patternID int, name string, description *string) error {
+	query := `
+		UPDATE check_items
+		SET pattern_id = $2, name = $3, description = $4
+		WHERE id = $1
+	`
+	_, err := db.Exec(query, id, patternID, name, description)
+	return err
+}
+
+// DeleteCheckItem deletes a check item
+func (db *DB) DeleteCheckItem(id int) error {
+	query := `DELETE FROM check_items WHERE id = $1`
+	_, err := db.Exec(query, id)
+	return err
+}
+
+// ===== Check Results CRUD =====
+
+// GetCheckResults retrieves check results, optionally filtered by repository_id
+func (db *DB) GetCheckResults(repositoryID *int) ([]CheckResult, error) {
+	var query string
+	var args []interface{}
+
+	if repositoryID != nil {
+		query = `
+			SELECT id, repository_id, check_item_id, result, memo, checked_at, updated_at
+			FROM check_results
+			WHERE repository_id = $1
+			ORDER BY id
+		`
+		args = append(args, *repositoryID)
+	} else {
+		query = `
+			SELECT id, repository_id, check_item_id, result, memo, checked_at, updated_at
+			FROM check_results
+			ORDER BY id
+		`
+	}
+
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []CheckResult
+	for rows.Next() {
+		var r CheckResult
+		var memo sql.NullString
+		if err := rows.Scan(&r.ID, &r.RepositoryID, &r.CheckItemID, &r.Result, &memo, &r.CheckedAt, &r.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if memo.Valid {
+			r.Memo = &memo.String
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+// CreateCheckResult creates a new check result
+func (db *DB) CreateCheckResult(repositoryID, checkItemID int, result bool, memo *string) (int, error) {
+	query := `
+		INSERT INTO check_results (repository_id, check_item_id, result, memo)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (repository_id, check_item_id) DO UPDATE
+		SET result = EXCLUDED.result, memo = EXCLUDED.memo, updated_at = CURRENT_TIMESTAMP
+		RETURNING id
+	`
+	var id int
+	err := db.QueryRow(query, repositoryID, checkItemID, result, memo).Scan(&id)
+	return id, err
+}
+
+// UpdateCheckResult updates an existing check result
+func (db *DB) UpdateCheckResult(id int, result bool, memo *string) error {
+	query := `
+		UPDATE check_results
+		SET result = $2, memo = $3, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1
+	`
+	_, err := db.Exec(query, id, result, memo)
+	return err
+}
+
+// DeleteCheckResult deletes a check result
+func (db *DB) DeleteCheckResult(id int) error {
+	query := `DELETE FROM check_results WHERE id = $1`
+	_, err := db.Exec(query, id)
+	return err
 }

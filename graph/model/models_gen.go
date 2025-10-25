@@ -21,6 +21,12 @@ type CheckItem struct {
 	CreatedAt   time.Time   `json:"createdAt"`
 }
 
+type CheckItemInput struct {
+	PatternID   int32   `json:"patternId"`
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
+}
+
 type CheckResult struct {
 	ID           int32       `json:"id"`
 	RepositoryID int32       `json:"repositoryId"`
@@ -33,12 +39,23 @@ type CheckResult struct {
 	UpdatedAt    time.Time   `json:"updatedAt"`
 }
 
+type CheckResultInput struct {
+	CheckItemID int32   `json:"checkItemId"`
+	Result      bool    `json:"result"`
+	Memo        *string `json:"memo,omitempty"`
+}
+
 type K8sPattern struct {
 	ID          int32        `json:"id"`
 	Name        string       `json:"name"`
 	Description *string      `json:"description,omitempty"`
 	CheckItems  []*CheckItem `json:"checkItems"`
 	CreatedAt   time.Time    `json:"createdAt"`
+}
+
+type K8sPatternInput struct {
+	Name        string  `json:"name"`
+	Description *string `json:"description,omitempty"`
 }
 
 type Mutation struct {
@@ -60,10 +77,18 @@ type Query struct {
 }
 
 type Repository struct {
-	ID              int32     `json:"id"`
-	NameWithOwner   string    `json:"nameWithOwner"`
-	StargazerCount  int32     `json:"stargazerCount"`
-	PrimaryLanguage *string   `json:"primaryLanguage,omitempty"`
-	HasDockerfile   bool      `json:"hasDockerfile"`
-	CreatedAt       time.Time `json:"createdAt"`
+	ID              int32      `json:"id"`
+	NameWithOwner   string     `json:"nameWithOwner"`
+	StargazerCount  int32      `json:"stargazerCount"`
+	PrimaryLanguage *string    `json:"primaryLanguage,omitempty"`
+	HasDockerfile   bool       `json:"hasDockerfile"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	IsWebApp        *bool      `json:"isWebApp,omitempty"`
+	WebAppCheckedAt *time.Time `json:"webAppCheckedAt,omitempty"`
+}
+
+type RepositoryEvaluationInput struct {
+	RepositoryID int32               `json:"repositoryId"`
+	IsWebApp     bool                `json:"isWebApp"`
+	CheckResults []*CheckResultInput `json:"checkResults,omitempty"`
 }

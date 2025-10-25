@@ -10,8 +10,94 @@ import (
 	"strings"
 
 	"github.com/naoya0117/shuron2025/api/graph/model"
-	"github.com/naoya0117/shuron2025/api/internal/database"
 )
+
+// Pattern is the resolver for the pattern field on CheckItem.
+func (r *checkItemResolver) Pattern(ctx context.Context, obj *model.CheckItem) (*model.K8sPattern, error) {
+	patterns, err := r.DB.GetK8sPatterns()
+	if err != nil {
+		return nil, fmt.Errorf("パターンの取得に失敗しました: %w", err)
+	}
+	for _, p := range patterns {
+		if p.ID == int(obj.PatternID) {
+			var description *string
+			if p.Description != nil && strings.TrimSpace(*p.Description) != "" {
+				desc := strings.TrimSpace(*p.Description)
+				description = &desc
+			}
+			return &model.K8sPattern{
+				ID:          int32(p.ID),
+				Name:        p.Name,
+				Description: description,
+				CreatedAt:   p.CreatedAt,
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("パターンが見つかりません (ID: %d)", obj.PatternID)
+}
+
+// Repository is the resolver for the repository field on CheckResult.
+func (r *checkResultResolver) Repository(ctx context.Context, obj *model.CheckResult) (*model.Repository, error) {
+	repo, err := r.DB.GetRepository(int(obj.RepositoryID))
+	if err != nil {
+		return nil, fmt.Errorf("リポジトリの取得に失敗しました: %w", err)
+	}
+	if repo == nil {
+		return nil, fmt.Errorf("リポジトリが見つかりません (ID: %d)", obj.RepositoryID)
+	}
+
+	var primaryLanguage *string
+	if repo.PrimaryLanguage != nil && strings.TrimSpace(*repo.PrimaryLanguage) != "" {
+		lang := strings.TrimSpace(*repo.PrimaryLanguage)
+		primaryLanguage = &lang
+	}
+
+	return &model.Repository{
+		ID:              int32(repo.ID),
+		NameWithOwner:   repo.NameWithOwner,
+		StargazerCount:  int32(repo.StargazerCount),
+		PrimaryLanguage: primaryLanguage,
+		HasDockerfile:   repo.HasDockerfile,
+		CreatedAt:       repo.CreatedAt,
+		IsWebApp:        repo.IsWebApp,
+		WebAppCheckedAt: repo.WebAppCheckedAt,
+	}, nil
+}
+
+// CheckItem is the resolver for the checkItem field on CheckResult.
+func (r *checkResultResolver) CheckItem(ctx context.Context, obj *model.CheckResult) (*model.CheckItem, error) {
+	items, err := r.DB.GetCheckItems(nil)
+	if err != nil {
+		return nil, fmt.Errorf("チェック項目の取得に失敗しました: %w", err)
+	}
+	for _, item := range items {
+		if item.ID == int(obj.CheckItemID) {
+			var description *string
+			if item.Description != nil && strings.TrimSpace(*item.Description) != "" {
+				desc := strings.TrimSpace(*item.Description)
+				description = &desc
+			}
+			return &model.CheckItem{
+				ID:          int32(item.ID),
+				PatternID:   int32(item.PatternID),
+				Name:        item.Name,
+				Description: description,
+				CreatedAt:   item.CreatedAt,
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("チェック項目が見つかりません (ID: %d)", obj.CheckItemID)
+}
+
+// CheckItems is the resolver for the checkItems field on K8sPattern.
+func (r *k8sPatternResolver) CheckItems(ctx context.Context, obj *model.K8sPattern) ([]*model.CheckItem, error) {
+	patternID := int(obj.ID)
+	items, err := r.DB.GetCheckItems(&patternID)
+	if err != nil {
+		return nil, fmt.Errorf("チェック項目の取得に失敗しました: %w", err)
+	}
+	return convertCheckItems(items), nil
+}
 
 // CreateCheckResult is the resolver for the createCheckResult field.
 func (r *mutationResolver) CreateCheckResult(ctx context.Context, input model.NewCheckResultInput) (*model.MutationResult, error) {
@@ -46,16 +132,6 @@ func (r *mutationResolver) CreateCheckResult(ctx context.Context, input model.Ne
 
 // UpdateCheckResult is the resolver for the updateCheckResult field.
 func (r *mutationResolver) UpdateCheckResult(ctx context.Context, id int32, input model.NewCheckResultInput) (*model.MutationResult, error) {
-	repositoryID := int(input.RepositoryID)
-	checkItemID := int(input.CheckItemID)
-
-	if repositoryID <= 0 {
-		return nil, fmt.Errorf("リポジトリIDが不正です")
-	}
-	if checkItemID <= 0 {
-		return nil, fmt.Errorf("チェック項目IDが不正です")
-	}
-
 	var memoPtr *string
 	if input.Memo != nil {
 		memo := strings.TrimSpace(*input.Memo)
@@ -64,7 +140,8 @@ func (r *mutationResolver) UpdateCheckResult(ctx context.Context, id int32, inpu
 		}
 	}
 
-	if err := r.DB.UpdateCheckResult(int(id), repositoryID, checkItemID, input.Result, memoPtr); err != nil {
+	// UpdateCheckResult takes (id, result, memo)
+	if err := r.DB.UpdateCheckResult(int(id), input.Result, memoPtr); err != nil {
 		return nil, fmt.Errorf("チェック結果の更新に失敗しました: %w", err)
 	}
 
@@ -85,6 +162,129 @@ func (r *mutationResolver) DeleteCheckResult(ctx context.Context, id int32) (*mo
 	return &model.MutationResult{
 		Success: true,
 		Message: &message,
+	}, nil
+}
+
+// SaveRepositoryEvaluation is the resolver for the saveRepositoryEvaluation field.
+func (r *mutationResolver) SaveRepositoryEvaluation(ctx context.Context, input model.RepositoryEvaluationInput) (*model.MutationResult, error) {
+	repositoryID := int(input.RepositoryID)
+
+	// 1. Save WebApp check
+	if err := r.DB.UpsertRepositoryWebAppCheck(repositoryID, input.IsWebApp); err != nil {
+		return &model.MutationResult{
+			Success: false,
+			Message: strPtr(fmt.Sprintf("Webアプリ判定の保存に失敗しました: %v", err)),
+		}, nil
+	}
+
+	// 2. Save check results (only if isWebApp is true and checkResults are provided)
+	if input.IsWebApp && input.CheckResults != nil {
+		for _, checkResult := range input.CheckResults {
+			checkItemID := int(checkResult.CheckItemID)
+			var memo *string
+			if checkResult.Memo != nil && strings.TrimSpace(*checkResult.Memo) != "" {
+				m := strings.TrimSpace(*checkResult.Memo)
+				memo = &m
+			}
+
+			if _, err := r.DB.CreateCheckResult(repositoryID, checkItemID, checkResult.Result, memo); err != nil {
+				return &model.MutationResult{
+					Success: false,
+					Message: strPtr(fmt.Sprintf("チェック結果の保存に失敗しました: %v", err)),
+				}, nil
+			}
+		}
+	}
+
+	return &model.MutationResult{
+		Success: true,
+		Message: strPtr("リポジトリ評価を保存しました"),
+	}, nil
+}
+
+// CreatePattern is the resolver for the createPattern field.
+func (r *mutationResolver) CreatePattern(ctx context.Context, input model.K8sPatternInput) (*model.MutationResult, error) {
+	id, err := r.DB.CreateK8sPattern(input.Name, input.Description)
+	if err != nil {
+		return &model.MutationResult{
+			Success: false,
+			Message: strPtr(fmt.Sprintf("パターンの作成に失敗しました: %v", err)),
+		}, nil
+	}
+	return &model.MutationResult{
+		Success: true,
+		Message: strPtr(fmt.Sprintf("パターンを作成しました (ID: %d)", id)),
+	}, nil
+}
+
+// UpdatePattern is the resolver for the updatePattern field.
+func (r *mutationResolver) UpdatePattern(ctx context.Context, id int32, input model.K8sPatternInput) (*model.MutationResult, error) {
+	if err := r.DB.UpdateK8sPattern(int(id), input.Name, input.Description); err != nil {
+		return &model.MutationResult{
+			Success: false,
+			Message: strPtr(fmt.Sprintf("パターンの更新に失敗しました: %v", err)),
+		}, nil
+	}
+	return &model.MutationResult{
+		Success: true,
+		Message: strPtr("パターンを更新しました"),
+	}, nil
+}
+
+// DeletePattern is the resolver for the deletePattern field.
+func (r *mutationResolver) DeletePattern(ctx context.Context, id int32) (*model.MutationResult, error) {
+	if err := r.DB.DeleteK8sPattern(int(id)); err != nil {
+		return &model.MutationResult{
+			Success: false,
+			Message: strPtr(fmt.Sprintf("パターンの削除に失敗しました: %v", err)),
+		}, nil
+	}
+	return &model.MutationResult{
+		Success: true,
+		Message: strPtr("パターンを削除しました"),
+	}, nil
+}
+
+// CreateCheckItem is the resolver for the createCheckItem field.
+func (r *mutationResolver) CreateCheckItem(ctx context.Context, input model.CheckItemInput) (*model.MutationResult, error) {
+	id, err := r.DB.CreateCheckItem(int(input.PatternID), input.Name, input.Description)
+	if err != nil {
+		return &model.MutationResult{
+			Success: false,
+			Message: strPtr(fmt.Sprintf("チェック項目の作成に失敗しました: %v", err)),
+		}, nil
+	}
+	return &model.MutationResult{
+		Success: true,
+		Message: strPtr(fmt.Sprintf("チェック項目を作成しました (ID: %d)", id)),
+	}, nil
+}
+
+// UpdateCheckItem is the resolver for the updateCheckItem field.
+func (r *mutationResolver) UpdateCheckItem(ctx context.Context, id int32, input model.CheckItemInput) (*model.MutationResult, error) {
+	if err := r.DB.UpdateCheckItem(int(id), int(input.PatternID), input.Name, input.Description); err != nil {
+		return &model.MutationResult{
+			Success: false,
+			Message: strPtr(fmt.Sprintf("チェック項目の更新に失敗しました: %v", err)),
+		}, nil
+	}
+	return &model.MutationResult{
+		Success: true,
+		Message: strPtr("チェック項目を更新しました"),
+	}, nil
+}
+
+// DeleteCheckItem is the resolver for the deleteCheckItem field.
+func (r *mutationResolver) DeleteCheckItem(ctx context.Context, id int32) (*model.MutationResult, error) {
+	if err := r.DB.DeleteCheckItem(int(id)); err != nil {
+		return &model.MutationResult{
+			Success: false,
+			Message: strPtr(fmt.Sprintf("チェック項目の削除に失敗しました: %v", err)),
+		}, nil
+	}
+	return &model.MutationResult{
+		Success: true,
+		Message: strPtr("チェック項目を削除しました"),
 	}, nil
 }
 
@@ -156,91 +356,69 @@ func (r *queryResolver) CheckResults(ctx context.Context, repositoryID *int32) (
 	return convertCheckResults(results), nil
 }
 
+// Repositories is the resolver for the repositories field.
+func (r *queryResolver) Repositories(ctx context.Context, limit *int32, offset *int32) ([]*model.Repository, error) {
+	l := 100
+	if limit != nil && *limit > 0 {
+		l = int(*limit)
+	}
+	o := 0
+	if offset != nil && *offset >= 0 {
+		o = int(*offset)
+	}
+
+	repos, err := r.DB.GetRepositories(l, o)
+	if err != nil {
+		return nil, fmt.Errorf("リポジトリ一覧の取得に失敗しました: %w", err)
+	}
+	return convertRepositories(repos), nil
+}
+
+// Repository is the resolver for the repository field.
+func (r *queryResolver) Repository(ctx context.Context, id int32) (*model.Repository, error) {
+	repo, err := r.DB.GetRepository(int(id))
+	if err != nil {
+		return nil, fmt.Errorf("リポジトリの取得に失敗しました: %w", err)
+	}
+	if repo == nil {
+		return nil, nil
+	}
+
+	var primaryLanguage *string
+	if repo.PrimaryLanguage != nil && strings.TrimSpace(*repo.PrimaryLanguage) != "" {
+		lang := strings.TrimSpace(*repo.PrimaryLanguage)
+		primaryLanguage = &lang
+	}
+
+	return &model.Repository{
+		ID:              int32(repo.ID),
+		NameWithOwner:   repo.NameWithOwner,
+		StargazerCount:  int32(repo.StargazerCount),
+		PrimaryLanguage: primaryLanguage,
+		HasDockerfile:   repo.HasDockerfile,
+		CreatedAt:       repo.CreatedAt,
+		IsWebApp:        repo.IsWebApp,
+		WebAppCheckedAt: repo.WebAppCheckedAt,
+	}, nil
+}
+
+// CheckItem returns CheckItemResolver implementation.
+func (r *Resolver) CheckItem() CheckItemResolver { return &checkItemResolver{r} }
+
+// CheckResult returns CheckResultResolver implementation.
+func (r *Resolver) CheckResult() CheckResultResolver { return &checkResultResolver{r} }
+
+// K8sPattern returns K8sPatternResolver implementation.
+func (r *Resolver) K8sPattern() K8sPatternResolver { return &k8sPatternResolver{r} }
+
 // Mutation returns MutationResolver implementation.
 func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
+type checkItemResolver struct{ *Resolver }
+type checkResultResolver struct{ *Resolver }
+type k8sPatternResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
-
-// Helper functions to convert database models to GraphQL models
-
-func convertK8sPatterns(patterns []database.K8sPattern) []*model.K8sPattern {
-	result := make([]*model.K8sPattern, 0, len(patterns))
-	for _, p := range patterns {
-		var description *string
-		if p.Description != nil && strings.TrimSpace(*p.Description) != "" {
-			desc := strings.TrimSpace(*p.Description)
-			description = &desc
-		}
-		result = append(result, &model.K8sPattern{
-			ID:          int32(p.ID),
-			Name:        p.Name,
-			Description: description,
-			CreatedAt:   p.CreatedAt,
-		})
-	}
-	return result
-}
-
-func convertCheckItems(items []database.CheckItem) []*model.CheckItem {
-	result := make([]*model.CheckItem, 0, len(items))
-	for _, item := range items {
-		var description *string
-		if item.Description != nil && strings.TrimSpace(*item.Description) != "" {
-			desc := strings.TrimSpace(*item.Description)
-			description = &desc
-		}
-		result = append(result, &model.CheckItem{
-			ID:          int32(item.ID),
-			PatternID:   int32(item.PatternID),
-			Name:        item.Name,
-			Description: description,
-			CreatedAt:   item.CreatedAt,
-		})
-	}
-	return result
-}
-
-func convertCheckResults(results []database.CheckResult) []*model.CheckResult {
-	result := make([]*model.CheckResult, 0, len(results))
-	for _, r := range results {
-		var memo *string
-		if r.Memo != nil && strings.TrimSpace(*r.Memo) != "" {
-			m := strings.TrimSpace(*r.Memo)
-			memo = &m
-		}
-		result = append(result, &model.CheckResult{
-			ID:           int32(r.ID),
-			RepositoryID: int32(r.RepositoryID),
-			CheckItemID:  int32(r.CheckItemID),
-			Result:       r.Result,
-			Memo:         memo,
-			CheckedAt:    r.CheckedAt,
-			UpdatedAt:    r.UpdatedAt,
-		})
-	}
-	return result
-}
-
-func convertRepositories(repos []database.Repository) []*model.Repository {
-	result := make([]*model.Repository, 0, len(repos))
-	for _, repo := range repos {
-		var primaryLanguage *string
-		if repo.PrimaryLanguage != nil && strings.TrimSpace(*repo.PrimaryLanguage) != "" {
-			lang := strings.TrimSpace(*repo.PrimaryLanguage)
-			primaryLanguage = &lang
-		}
-		result = append(result, &model.Repository{
-			ID:              int32(repo.ID),
-			NameWithOwner:   repo.NameWithOwner,
-			StargazerCount:  int32(repo.StargazerCount),
-			PrimaryLanguage: primaryLanguage,
-			HasDockerfile:   repo.HasDockerfile,
-			CreatedAt:       repo.CreatedAt,
-		})
-	}
-	return result
-}

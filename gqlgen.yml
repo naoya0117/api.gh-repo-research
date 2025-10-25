@@ -83,6 +83,9 @@ resolver:
 # Optional: turn off to make resolvers return values instead of pointers for structs
 # resolvers_always_return_pointers: true
 
+# Optional: turn on to exclude resolver fields from the generated models file.
+omit_resolver_fields: false
+
 # Optional: turn on to return pointers instead of values in unmarshalInput
 # return_pointers_in_unmarshalinput: false
 
@@ -160,3 +163,21 @@ models:
   Time:
     model:
       - github.com/99designs/gqlgen/graphql.Time
+
+  # Exclude resolver fields from models to force field resolvers
+  K8sPattern:
+    fields:
+      checkItems:
+        resolver: true
+
+  CheckItem:
+    fields:
+      pattern:
+        resolver: true
+
+  CheckResult:
+    fields:
+      repository:
+        resolver: true
+      checkItem:
+        resolver: true

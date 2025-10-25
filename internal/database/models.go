@@ -14,6 +14,8 @@ type Repository struct {
 	HasDockerfile   bool         `json:"hasDockerfile"`
 	CreatedAt       time.Time    `json:"createdAt"`
 	UpdatedAt       time.Time    `json:"updatedAt"`
+	IsWebApp        *bool        `json:"isWebApp"`
+	WebAppCheckedAt *time.Time   `json:"webAppCheckedAt"`
 }
 
 type SearchState struct {
@@ -80,9 +82,13 @@ func (db *DB) InsertRepository(repo Repository) error {
 
 func (db *DB) GetRepositories(limit, offset int) ([]Repository, error) {
 	query := `
-		SELECT id, url, name_with_owner, stargazer_count, primary_language, has_dockerfile, created_at, updated_at
-		FROM repositories
-		ORDER BY stargazer_count DESC
+		SELECT
+			r.id, r.url, r.name_with_owner, r.stargazer_count, r.primary_language,
+			r.has_dockerfile, r.created_at, r.updated_at,
+			w.is_web_app, w.updated_at as web_app_checked_at
+		FROM repositories r
+		LEFT JOIN repository_webapp_checks w ON r.id = w.id
+		ORDER BY r.stargazer_count DESC
 		LIMIT $1 OFFSET $2
 	`
 	rows, err := db.Query(query, limit, offset)
@@ -95,7 +101,9 @@ func (db *DB) GetRepositories(limit, offset int) ([]Repository, error) {
 	for rows.Next() {
 		var repo Repository
 		var primaryLanguage sql.NullString
-		
+		var isWebApp sql.NullBool
+		var webAppCheckedAt sql.NullTime
+
 		err := rows.Scan(
 			&repo.ID,
 			&repo.URL,
@@ -105,15 +113,23 @@ func (db *DB) GetRepositories(limit, offset int) ([]Repository, error) {
 			&repo.HasDockerfile,
 			&repo.CreatedAt,
 			&repo.UpdatedAt,
+			&isWebApp,
+			&webAppCheckedAt,
 		)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		if primaryLanguage.Valid {
 			repo.PrimaryLanguage = &primaryLanguage.String
 		}
-		
+		if isWebApp.Valid {
+			repo.IsWebApp = &isWebApp.Bool
+		}
+		if webAppCheckedAt.Valid {
+			repo.WebAppCheckedAt = &webAppCheckedAt.Time
+		}
+
 		repositories = append(repositories, repo)
 	}
 

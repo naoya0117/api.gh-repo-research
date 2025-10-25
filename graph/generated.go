@@ -40,6 +40,9 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	CheckItem() CheckItemResolver
+	CheckResult() CheckResultResolver
+	K8sPattern() K8sPatternResolver
 	Mutation() MutationResolver
 	Query() QueryResolver
 }
@@ -84,9 +87,16 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreateCheckResult func(childComplexity int, input model.NewCheckResultInput) int
-		DeleteCheckResult func(childComplexity int, id int32) int
-		UpdateCheckResult func(childComplexity int, id int32, input model.NewCheckResultInput) int
+		CreateCheckItem          func(childComplexity int, input model.CheckItemInput) int
+		CreateCheckResult        func(childComplexity int, input model.NewCheckResultInput) int
+		CreatePattern            func(childComplexity int, input model.K8sPatternInput) int
+		DeleteCheckItem          func(childComplexity int, id int32) int
+		DeleteCheckResult        func(childComplexity int, id int32) int
+		DeletePattern            func(childComplexity int, id int32) int
+		SaveRepositoryEvaluation func(childComplexity int, input model.RepositoryEvaluationInput) int
+		UpdateCheckItem          func(childComplexity int, id int32, input model.CheckItemInput) int
+		UpdateCheckResult        func(childComplexity int, id int32, input model.NewCheckResultInput) int
+		UpdatePattern            func(childComplexity int, id int32, input model.K8sPatternInput) int
 	}
 
 	MutationResult struct {
@@ -99,28 +109,52 @@ type ComplexityRoot struct {
 		CheckItems     func(childComplexity int, patternID *int32) int
 		CheckResults   func(childComplexity int, repositoryID *int32) int
 		Patterns       func(childComplexity int) int
+		Repositories   func(childComplexity int, limit *int32, offset *int32) int
+		Repository     func(childComplexity int, id int32) int
 	}
 
 	Repository struct {
 		CreatedAt       func(childComplexity int) int
 		HasDockerfile   func(childComplexity int) int
 		ID              func(childComplexity int) int
+		IsWebApp        func(childComplexity int) int
 		NameWithOwner   func(childComplexity int) int
 		PrimaryLanguage func(childComplexity int) int
 		StargazerCount  func(childComplexity int) int
+		WebAppCheckedAt func(childComplexity int) int
 	}
 }
 
+type CheckItemResolver interface {
+	Pattern(ctx context.Context, obj *model.CheckItem) (*model.K8sPattern, error)
+}
+type CheckResultResolver interface {
+	Repository(ctx context.Context, obj *model.CheckResult) (*model.Repository, error)
+
+	CheckItem(ctx context.Context, obj *model.CheckResult) (*model.CheckItem, error)
+}
+type K8sPatternResolver interface {
+	CheckItems(ctx context.Context, obj *model.K8sPattern) ([]*model.CheckItem, error)
+}
 type MutationResolver interface {
 	CreateCheckResult(ctx context.Context, input model.NewCheckResultInput) (*model.MutationResult, error)
 	UpdateCheckResult(ctx context.Context, id int32, input model.NewCheckResultInput) (*model.MutationResult, error)
 	DeleteCheckResult(ctx context.Context, id int32) (*model.MutationResult, error)
+	SaveRepositoryEvaluation(ctx context.Context, input model.RepositoryEvaluationInput) (*model.MutationResult, error)
+	CreatePattern(ctx context.Context, input model.K8sPatternInput) (*model.MutationResult, error)
+	UpdatePattern(ctx context.Context, id int32, input model.K8sPatternInput) (*model.MutationResult, error)
+	DeletePattern(ctx context.Context, id int32) (*model.MutationResult, error)
+	CreateCheckItem(ctx context.Context, input model.CheckItemInput) (*model.MutationResult, error)
+	UpdateCheckItem(ctx context.Context, id int32, input model.CheckItemInput) (*model.MutationResult, error)
+	DeleteCheckItem(ctx context.Context, id int32) (*model.MutationResult, error)
 }
 type QueryResolver interface {
 	AdminDashboard(ctx context.Context, limit *int32) (*model.AdminDashboard, error)
 	Patterns(ctx context.Context) ([]*model.K8sPattern, error)
 	CheckItems(ctx context.Context, patternID *int32) ([]*model.CheckItem, error)
 	CheckResults(ctx context.Context, repositoryID *int32) ([]*model.CheckResult, error)
+	Repositories(ctx context.Context, limit *int32, offset *int32) ([]*model.Repository, error)
+	Repository(ctx context.Context, id int32) (*model.Repository, error)
 }
 
 type executableSchema struct {
@@ -303,6 +337,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.K8sPattern.Name(childComplexity), true
 
+	case "Mutation.createCheckItem":
+		if e.complexity.Mutation.CreateCheckItem == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createCheckItem_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreateCheckItem(childComplexity, args["input"].(model.CheckItemInput)), true
+
 	case "Mutation.createCheckResult":
 		if e.complexity.Mutation.CreateCheckResult == nil {
 			break
@@ -314,6 +360,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.CreateCheckResult(childComplexity, args["input"].(model.NewCheckResultInput)), true
+
+	case "Mutation.createPattern":
+		if e.complexity.Mutation.CreatePattern == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createPattern_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.CreatePattern(childComplexity, args["input"].(model.K8sPatternInput)), true
+
+	case "Mutation.deleteCheckItem":
+		if e.complexity.Mutation.DeleteCheckItem == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteCheckItem_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteCheckItem(childComplexity, args["id"].(int32)), true
 
 	case "Mutation.deleteCheckResult":
 		if e.complexity.Mutation.DeleteCheckResult == nil {
@@ -327,6 +397,42 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Mutation.DeleteCheckResult(childComplexity, args["id"].(int32)), true
 
+	case "Mutation.deletePattern":
+		if e.complexity.Mutation.DeletePattern == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deletePattern_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeletePattern(childComplexity, args["id"].(int32)), true
+
+	case "Mutation.saveRepositoryEvaluation":
+		if e.complexity.Mutation.SaveRepositoryEvaluation == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_saveRepositoryEvaluation_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.SaveRepositoryEvaluation(childComplexity, args["input"].(model.RepositoryEvaluationInput)), true
+
+	case "Mutation.updateCheckItem":
+		if e.complexity.Mutation.UpdateCheckItem == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateCheckItem_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateCheckItem(childComplexity, args["id"].(int32), args["input"].(model.CheckItemInput)), true
+
 	case "Mutation.updateCheckResult":
 		if e.complexity.Mutation.UpdateCheckResult == nil {
 			break
@@ -338,6 +444,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.UpdateCheckResult(childComplexity, args["id"].(int32), args["input"].(model.NewCheckResultInput)), true
+
+	case "Mutation.updatePattern":
+		if e.complexity.Mutation.UpdatePattern == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updatePattern_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdatePattern(childComplexity, args["id"].(int32), args["input"].(model.K8sPatternInput)), true
 
 	case "MutationResult.message":
 		if e.complexity.MutationResult.Message == nil {
@@ -396,6 +514,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Query.Patterns(childComplexity), true
 
+	case "Query.repositories":
+		if e.complexity.Query.Repositories == nil {
+			break
+		}
+
+		args, err := ec.field_Query_repositories_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Repositories(childComplexity, args["limit"].(*int32), args["offset"].(*int32)), true
+
+	case "Query.repository":
+		if e.complexity.Query.Repository == nil {
+			break
+		}
+
+		args, err := ec.field_Query_repository_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Repository(childComplexity, args["id"].(int32)), true
+
 	case "Repository.createdAt":
 		if e.complexity.Repository.CreatedAt == nil {
 			break
@@ -416,6 +558,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Repository.ID(childComplexity), true
+
+	case "Repository.isWebApp":
+		if e.complexity.Repository.IsWebApp == nil {
+			break
+		}
+
+		return e.complexity.Repository.IsWebApp(childComplexity), true
 
 	case "Repository.nameWithOwner":
 		if e.complexity.Repository.NameWithOwner == nil {
@@ -438,6 +587,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.Repository.StargazerCount(childComplexity), true
 
+	case "Repository.webAppCheckedAt":
+		if e.complexity.Repository.WebAppCheckedAt == nil {
+			break
+		}
+
+		return e.complexity.Repository.WebAppCheckedAt(childComplexity), true
+
 	}
 	return 0, false
 }
@@ -446,7 +602,11 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputCheckItemInput,
+		ec.unmarshalInputCheckResultInput,
+		ec.unmarshalInputK8sPatternInput,
 		ec.unmarshalInputNewCheckResultInput,
+		ec.unmarshalInputRepositoryEvaluationInput,
 	)
 	first := true
 
@@ -563,6 +723,17 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) field_Mutation_createCheckItem_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCheckItemInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckItemInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createCheckResult_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -571,6 +742,28 @@ func (ec *executionContext) field_Mutation_createCheckResult_args(ctx context.Co
 		return nil, err
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_createPattern_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNK8sPatternInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐK8sPatternInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteCheckItem_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNInt2int32)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -585,6 +778,44 @@ func (ec *executionContext) field_Mutation_deleteCheckResult_args(ctx context.Co
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_deletePattern_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNInt2int32)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_saveRepositoryEvaluation_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNRepositoryEvaluationInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐRepositoryEvaluationInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateCheckItem_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNInt2int32)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNCheckItemInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckItemInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_updateCheckResult_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -594,6 +825,22 @@ func (ec *executionContext) field_Mutation_updateCheckResult_args(ctx context.Co
 	}
 	args["id"] = arg0
 	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNNewCheckResultInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐNewCheckResultInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updatePattern_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNInt2int32)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNK8sPatternInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐK8sPatternInput)
 	if err != nil {
 		return nil, err
 	}
@@ -642,6 +889,33 @@ func (ec *executionContext) field_Query_checkResults_args(ctx context.Context, r
 		return nil, err
 	}
 	args["repositoryId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_repositories_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "limit", ec.unmarshalOInt2ᚖint32)
+	if err != nil {
+		return nil, err
+	}
+	args["limit"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "offset", ec.unmarshalOInt2ᚖint32)
+	if err != nil {
+		return nil, err
+	}
+	args["offset"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_repository_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNInt2int32)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -804,6 +1078,10 @@ func (ec *executionContext) fieldContext_AdminDashboard_repositories(_ context.C
 				return ec.fieldContext_Repository_hasDockerfile(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Repository_createdAt(ctx, field)
+			case "isWebApp":
+				return ec.fieldContext_Repository_isWebApp(ctx, field)
+			case "webAppCheckedAt":
+				return ec.fieldContext_Repository_webAppCheckedAt(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Repository", field.Name)
 		},
@@ -977,7 +1255,7 @@ func (ec *executionContext) _CheckItem_pattern(ctx context.Context, field graphq
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Pattern, nil
+		return ec.resolvers.CheckItem().Pattern(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -998,8 +1276,8 @@ func (ec *executionContext) fieldContext_CheckItem_pattern(_ context.Context, fi
 	fc = &graphql.FieldContext{
 		Object:     "CheckItem",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
@@ -1250,7 +1528,7 @@ func (ec *executionContext) _CheckResult_repository(ctx context.Context, field g
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Repository, nil
+		return ec.resolvers.CheckResult().Repository(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1271,8 +1549,8 @@ func (ec *executionContext) fieldContext_CheckResult_repository(_ context.Contex
 	fc = &graphql.FieldContext{
 		Object:     "CheckResult",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
@@ -1287,6 +1565,10 @@ func (ec *executionContext) fieldContext_CheckResult_repository(_ context.Contex
 				return ec.fieldContext_Repository_hasDockerfile(ctx, field)
 			case "createdAt":
 				return ec.fieldContext_Repository_createdAt(ctx, field)
+			case "isWebApp":
+				return ec.fieldContext_Repository_isWebApp(ctx, field)
+			case "webAppCheckedAt":
+				return ec.fieldContext_Repository_webAppCheckedAt(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type Repository", field.Name)
 		},
@@ -1352,7 +1634,7 @@ func (ec *executionContext) _CheckResult_checkItem(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.CheckItem, nil
+		return ec.resolvers.CheckResult().CheckItem(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1373,8 +1655,8 @@ func (ec *executionContext) fieldContext_CheckResult_checkItem(_ context.Context
 	fc = &graphql.FieldContext{
 		Object:     "CheckResult",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
@@ -1712,7 +1994,7 @@ func (ec *executionContext) _K8sPattern_checkItems(ctx context.Context, field gr
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.CheckItems, nil
+		return ec.resolvers.K8sPattern().CheckItems(rctx, obj)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1733,8 +2015,8 @@ func (ec *executionContext) fieldContext_K8sPattern_checkItems(_ context.Context
 	fc = &graphql.FieldContext{
 		Object:     "K8sPattern",
 		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
+		IsMethod:   true,
+		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
@@ -1977,6 +2259,433 @@ func (ec *executionContext) fieldContext_Mutation_deleteCheckResult(ctx context.
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_deleteCheckResult_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_saveRepositoryEvaluation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_saveRepositoryEvaluation(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().SaveRepositoryEvaluation(rctx, fc.Args["input"].(model.RepositoryEvaluationInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.MutationResult)
+	fc.Result = res
+	return ec.marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_saveRepositoryEvaluation(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_MutationResult_success(ctx, field)
+			case "message":
+				return ec.fieldContext_MutationResult_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type MutationResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_saveRepositoryEvaluation_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createPattern(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_createPattern(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().CreatePattern(rctx, fc.Args["input"].(model.K8sPatternInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.MutationResult)
+	fc.Result = res
+	return ec.marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_createPattern(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_MutationResult_success(ctx, field)
+			case "message":
+				return ec.fieldContext_MutationResult_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type MutationResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createPattern_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updatePattern(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_updatePattern(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpdatePattern(rctx, fc.Args["id"].(int32), fc.Args["input"].(model.K8sPatternInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.MutationResult)
+	fc.Result = res
+	return ec.marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updatePattern(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_MutationResult_success(ctx, field)
+			case "message":
+				return ec.fieldContext_MutationResult_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type MutationResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updatePattern_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deletePattern(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_deletePattern(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeletePattern(rctx, fc.Args["id"].(int32))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.MutationResult)
+	fc.Result = res
+	return ec.marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_deletePattern(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_MutationResult_success(ctx, field)
+			case "message":
+				return ec.fieldContext_MutationResult_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type MutationResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deletePattern_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_createCheckItem(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_createCheckItem(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().CreateCheckItem(rctx, fc.Args["input"].(model.CheckItemInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.MutationResult)
+	fc.Result = res
+	return ec.marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_createCheckItem(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_MutationResult_success(ctx, field)
+			case "message":
+				return ec.fieldContext_MutationResult_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type MutationResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createCheckItem_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateCheckItem(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_updateCheckItem(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpdateCheckItem(rctx, fc.Args["id"].(int32), fc.Args["input"].(model.CheckItemInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.MutationResult)
+	fc.Result = res
+	return ec.marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updateCheckItem(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_MutationResult_success(ctx, field)
+			case "message":
+				return ec.fieldContext_MutationResult_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type MutationResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateCheckItem_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteCheckItem(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_deleteCheckItem(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteCheckItem(rctx, fc.Args["id"].(int32))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.MutationResult)
+	fc.Result = res
+	return ec.marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_deleteCheckItem(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_MutationResult_success(ctx, field)
+			case "message":
+				return ec.fieldContext_MutationResult_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type MutationResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteCheckItem_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2325,6 +3034,149 @@ func (ec *executionContext) fieldContext_Query_checkResults(ctx context.Context,
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_checkResults_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_repositories(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_repositories(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().Repositories(rctx, fc.Args["limit"].(*int32), fc.Args["offset"].(*int32))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.Repository)
+	fc.Result = res
+	return ec.marshalNRepository2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐRepositoryᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_repositories(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Repository_id(ctx, field)
+			case "nameWithOwner":
+				return ec.fieldContext_Repository_nameWithOwner(ctx, field)
+			case "stargazerCount":
+				return ec.fieldContext_Repository_stargazerCount(ctx, field)
+			case "primaryLanguage":
+				return ec.fieldContext_Repository_primaryLanguage(ctx, field)
+			case "hasDockerfile":
+				return ec.fieldContext_Repository_hasDockerfile(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Repository_createdAt(ctx, field)
+			case "isWebApp":
+				return ec.fieldContext_Repository_isWebApp(ctx, field)
+			case "webAppCheckedAt":
+				return ec.fieldContext_Repository_webAppCheckedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Repository", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_repositories_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_repository(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_repository(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().Repository(rctx, fc.Args["id"].(int32))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Repository)
+	fc.Result = res
+	return ec.marshalORepository2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐRepository(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_repository(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Repository_id(ctx, field)
+			case "nameWithOwner":
+				return ec.fieldContext_Repository_nameWithOwner(ctx, field)
+			case "stargazerCount":
+				return ec.fieldContext_Repository_stargazerCount(ctx, field)
+			case "primaryLanguage":
+				return ec.fieldContext_Repository_primaryLanguage(ctx, field)
+			case "hasDockerfile":
+				return ec.fieldContext_Repository_hasDockerfile(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Repository_createdAt(ctx, field)
+			case "isWebApp":
+				return ec.fieldContext_Repository_isWebApp(ctx, field)
+			case "webAppCheckedAt":
+				return ec.fieldContext_Repository_webAppCheckedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Repository", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_repository_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2711,6 +3563,88 @@ func (ec *executionContext) _Repository_createdAt(ctx context.Context, field gra
 }
 
 func (ec *executionContext) fieldContext_Repository_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Repository",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Repository_isWebApp(ctx context.Context, field graphql.CollectedField, obj *model.Repository) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Repository_isWebApp(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.IsWebApp, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*bool)
+	fc.Result = res
+	return ec.marshalOBoolean2ᚖbool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Repository_isWebApp(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Repository",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Repository_webAppCheckedAt(ctx context.Context, field graphql.CollectedField, obj *model.Repository) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Repository_webAppCheckedAt(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.WebAppCheckedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*time.Time)
+	fc.Result = res
+	return ec.marshalOTime2ᚖtimeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Repository_webAppCheckedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Repository",
 		Field:      field,
@@ -4674,6 +5608,122 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputCheckItemInput(ctx context.Context, obj any) (model.CheckItemInput, error) {
+	var it model.CheckItemInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"patternId", "name", "description"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "patternId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("patternId"))
+			data, err := ec.unmarshalNInt2int32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PatternID = data
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputCheckResultInput(ctx context.Context, obj any) (model.CheckResultInput, error) {
+	var it model.CheckResultInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"checkItemId", "result", "memo"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "checkItemId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("checkItemId"))
+			data, err := ec.unmarshalNInt2int32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CheckItemID = data
+		case "result":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("result"))
+			data, err := ec.unmarshalNBoolean2bool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Result = data
+		case "memo":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("memo"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Memo = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputK8sPatternInput(ctx context.Context, obj any) (model.K8sPatternInput, error) {
+	var it model.K8sPatternInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "description"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = data
+		}
+	}
+
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputNewCheckResultInput(ctx context.Context, obj any) (model.NewCheckResultInput, error) {
 	var it model.NewCheckResultInput
 	asMap := map[string]any{}
@@ -4716,6 +5766,47 @@ func (ec *executionContext) unmarshalInputNewCheckResultInput(ctx context.Contex
 				return it, err
 			}
 			it.Memo = data
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRepositoryEvaluationInput(ctx context.Context, obj any) (model.RepositoryEvaluationInput, error) {
+	var it model.RepositoryEvaluationInput
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"repositoryId", "isWebApp", "checkResults"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "repositoryId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("repositoryId"))
+			data, err := ec.unmarshalNInt2int32(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RepositoryID = data
+		case "isWebApp":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("isWebApp"))
+			data, err := ec.unmarshalNBoolean2bool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.IsWebApp = data
+		case "checkResults":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("checkResults"))
+			data, err := ec.unmarshalOCheckResultInput2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckResultInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.CheckResults = data
 		}
 	}
 
@@ -4793,29 +5884,60 @@ func (ec *executionContext) _CheckItem(ctx context.Context, sel ast.SelectionSet
 		case "id":
 			out.Values[i] = ec._CheckItem_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "patternId":
 			out.Values[i] = ec._CheckItem_patternId(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "pattern":
-			out.Values[i] = ec._CheckItem_pattern(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._CheckItem_pattern(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "name":
 			out.Values[i] = ec._CheckItem_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "description":
 			out.Values[i] = ec._CheckItem_description(ctx, field, obj)
 		case "createdAt":
 			out.Values[i] = ec._CheckItem_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -4854,44 +5976,106 @@ func (ec *executionContext) _CheckResult(ctx context.Context, sel ast.SelectionS
 		case "id":
 			out.Values[i] = ec._CheckResult_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "repositoryId":
 			out.Values[i] = ec._CheckResult_repositoryId(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "repository":
-			out.Values[i] = ec._CheckResult_repository(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._CheckResult_repository(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "checkItemId":
 			out.Values[i] = ec._CheckResult_checkItemId(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "checkItem":
-			out.Values[i] = ec._CheckResult_checkItem(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._CheckResult_checkItem(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "result":
 			out.Values[i] = ec._CheckResult_result(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "memo":
 			out.Values[i] = ec._CheckResult_memo(ctx, field, obj)
 		case "checkedAt":
 			out.Values[i] = ec._CheckResult_checkedAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "updatedAt":
 			out.Values[i] = ec._CheckResult_updatedAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -4930,24 +6114,55 @@ func (ec *executionContext) _K8sPattern(ctx context.Context, sel ast.SelectionSe
 		case "id":
 			out.Values[i] = ec._K8sPattern_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "name":
 			out.Values[i] = ec._K8sPattern_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "description":
 			out.Values[i] = ec._K8sPattern_description(ctx, field, obj)
 		case "checkItems":
-			out.Values[i] = ec._K8sPattern_checkItems(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._K8sPattern_checkItems(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
 			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "createdAt":
 			out.Values[i] = ec._K8sPattern_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -5008,6 +6223,55 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "deleteCheckResult":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deleteCheckResult(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "saveRepositoryEvaluation":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_saveRepositoryEvaluation(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createPattern":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createPattern(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatePattern":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updatePattern(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deletePattern":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deletePattern(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createCheckItem":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createCheckItem(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateCheckItem":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateCheckItem(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteCheckItem":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteCheckItem(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -5183,6 +6447,47 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "repositories":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_repositories(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "repository":
+			field := field
+
+			innerFunc := func(ctx context.Context, _ *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_repository(ctx, field)
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "__type":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Query___type(ctx, field)
@@ -5252,6 +6557,10 @@ func (ec *executionContext) _Repository(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "isWebApp":
+			out.Values[i] = ec._Repository_isWebApp(ctx, field, obj)
+		case "webAppCheckedAt":
+			out.Values[i] = ec._Repository_webAppCheckedAt(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5640,6 +6949,10 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
+func (ec *executionContext) marshalNCheckItem2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckItem(ctx context.Context, sel ast.SelectionSet, v model.CheckItem) graphql.Marshaler {
+	return ec._CheckItem(ctx, sel, &v)
+}
+
 func (ec *executionContext) marshalNCheckItem2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckItemᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CheckItem) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
@@ -5692,6 +7005,11 @@ func (ec *executionContext) marshalNCheckItem2ᚖgithubᚗcomᚋnaoya0117ᚋshur
 		return graphql.Null
 	}
 	return ec._CheckItem(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNCheckItemInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckItemInput(ctx context.Context, v any) (model.CheckItemInput, error) {
+	res, err := ec.unmarshalInputCheckItemInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNCheckResult2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckResultᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CheckResult) graphql.Marshaler {
@@ -5748,6 +7066,11 @@ func (ec *executionContext) marshalNCheckResult2ᚖgithubᚗcomᚋnaoya0117ᚋsh
 	return ec._CheckResult(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNCheckResultInput2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckResultInput(ctx context.Context, v any) (*model.CheckResultInput, error) {
+	res, err := ec.unmarshalInputCheckResultInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNInt2int32(ctx context.Context, v any) (int32, error) {
 	res, err := graphql.UnmarshalInt32(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -5762,6 +7085,10 @@ func (ec *executionContext) marshalNInt2int32(ctx context.Context, sel ast.Selec
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) marshalNK8sPattern2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐK8sPattern(ctx context.Context, sel ast.SelectionSet, v model.K8sPattern) graphql.Marshaler {
+	return ec._K8sPattern(ctx, sel, &v)
 }
 
 func (ec *executionContext) marshalNK8sPattern2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐK8sPatternᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.K8sPattern) graphql.Marshaler {
@@ -5818,6 +7145,11 @@ func (ec *executionContext) marshalNK8sPattern2ᚖgithubᚗcomᚋnaoya0117ᚋshu
 	return ec._K8sPattern(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNK8sPatternInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐK8sPatternInput(ctx context.Context, v any) (model.K8sPatternInput, error) {
+	res, err := ec.unmarshalInputK8sPatternInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) marshalNMutationResult2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx context.Context, sel ast.SelectionSet, v model.MutationResult) graphql.Marshaler {
 	return ec._MutationResult(ctx, sel, &v)
 }
@@ -5835,6 +7167,10 @@ func (ec *executionContext) marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117�
 func (ec *executionContext) unmarshalNNewCheckResultInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐNewCheckResultInput(ctx context.Context, v any) (model.NewCheckResultInput, error) {
 	res, err := ec.unmarshalInputNewCheckResultInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNRepository2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐRepository(ctx context.Context, sel ast.SelectionSet, v model.Repository) graphql.Marshaler {
+	return ec._Repository(ctx, sel, &v)
 }
 
 func (ec *executionContext) marshalNRepository2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐRepositoryᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.Repository) graphql.Marshaler {
@@ -5889,6 +7225,11 @@ func (ec *executionContext) marshalNRepository2ᚖgithubᚗcomᚋnaoya0117ᚋshu
 		return graphql.Null
 	}
 	return ec._Repository(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNRepositoryEvaluationInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐRepositoryEvaluationInput(ctx context.Context, v any) (model.RepositoryEvaluationInput, error) {
+	res, err := ec.unmarshalInputRepositoryEvaluationInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
@@ -6206,6 +7547,24 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
+func (ec *executionContext) unmarshalOCheckResultInput2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckResultInputᚄ(ctx context.Context, v any) ([]*model.CheckResultInput, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []any
+	vSlice = graphql.CoerceList(v)
+	var err error
+	res := make([]*model.CheckResultInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNCheckResultInput2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckResultInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
 func (ec *executionContext) unmarshalOInt2ᚖint32(ctx context.Context, v any) (*int32, error) {
 	if v == nil {
 		return nil, nil
@@ -6224,6 +7583,13 @@ func (ec *executionContext) marshalOInt2ᚖint32(ctx context.Context, sel ast.Se
 	return res
 }
 
+func (ec *executionContext) marshalORepository2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐRepository(ctx context.Context, sel ast.SelectionSet, v *model.Repository) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Repository(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {
 	if v == nil {
 		return nil, nil
@@ -6239,6 +7605,24 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	_ = sel
 	_ = ctx
 	res := graphql.MarshalString(*v)
+	return res
+}
+
+func (ec *executionContext) unmarshalOTime2ᚖtimeᚐTime(ctx context.Context, v any) (*time.Time, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalTime(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOTime2ᚖtimeᚐTime(ctx context.Context, sel ast.SelectionSet, v *time.Time) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalTime(*v)
 	return res
 }
 
