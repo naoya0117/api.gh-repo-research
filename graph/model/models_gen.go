@@ -7,17 +7,38 @@ import (
 )
 
 type AdminDashboard struct {
-	CheckQueries  []*CheckQuery `json:"checkQueries"`
-	Repositories  []*Repository `json:"repositories"`
-	MyChecks      []*MyCheck    `json:"myChecks"`
-	ResultOptions []string      `json:"resultOptions"`
+	Patterns     []*K8sPattern  `json:"patterns"`
+	Repositories []*Repository  `json:"repositories"`
+	CheckResults []*CheckResult `json:"checkResults"`
 }
 
-type CheckQuery struct {
-	ID          int32     `json:"id"`
-	Name        string    `json:"name"`
-	Description *string   `json:"description,omitempty"`
-	CreatedAt   time.Time `json:"createdAt"`
+type CheckItem struct {
+	ID          int32       `json:"id"`
+	PatternID   int32       `json:"patternId"`
+	Pattern     *K8sPattern `json:"pattern"`
+	Name        string      `json:"name"`
+	Description *string     `json:"description,omitempty"`
+	CreatedAt   time.Time   `json:"createdAt"`
+}
+
+type CheckResult struct {
+	ID           int32       `json:"id"`
+	RepositoryID int32       `json:"repositoryId"`
+	Repository   *Repository `json:"repository"`
+	CheckItemID  int32       `json:"checkItemId"`
+	CheckItem    *CheckItem  `json:"checkItem"`
+	Result       bool        `json:"result"`
+	Memo         *string     `json:"memo,omitempty"`
+	CheckedAt    time.Time   `json:"checkedAt"`
+	UpdatedAt    time.Time   `json:"updatedAt"`
+}
+
+type K8sPattern struct {
+	ID          int32        `json:"id"`
+	Name        string       `json:"name"`
+	Description *string      `json:"description,omitempty"`
+	CheckItems  []*CheckItem `json:"checkItems"`
+	CreatedAt   time.Time    `json:"createdAt"`
 }
 
 type Mutation struct {
@@ -28,28 +49,11 @@ type MutationResult struct {
 	Message *string `json:"message,omitempty"`
 }
 
-type MyCheck struct {
-	RepositoryID   int32     `json:"repositoryID"`
-	RepositoryName string    `json:"repositoryName"`
-	CheckQueryID   int32     `json:"checkQueryID"`
-	CheckQueryName string    `json:"checkQueryName"`
-	Result         string    `json:"result"`
-	Memo           *string   `json:"memo,omitempty"`
-	UpdatedAt      time.Time `json:"updatedAt"`
-	IsWebApp       *bool     `json:"isWebApp,omitempty"`
-}
-
-type NewCheckQueryInput struct {
-	Name        string  `json:"name"`
-	Description *string `json:"description,omitempty"`
-}
-
 type NewCheckResultInput struct {
-	RepositoryID int32   `json:"repositoryID"`
-	CheckQueryID int32   `json:"checkQueryID"`
-	Result       string  `json:"result"`
+	RepositoryID int32   `json:"repositoryId"`
+	CheckItemID  int32   `json:"checkItemId"`
+	Result       bool    `json:"result"`
 	Memo         *string `json:"memo,omitempty"`
-	IsWebApp     bool    `json:"isWebApp"`
 }
 
 type Query struct {

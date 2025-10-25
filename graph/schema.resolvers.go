@@ -13,49 +13,16 @@ import (
 	"github.com/naoya0117/shuron2025/api/internal/database"
 )
 
-var resultOptions = []string{"○", "×", "△"}
-
-// CreateCheckQuery is the resolver for the createCheckQuery field.
-func (r *mutationResolver) CreateCheckQuery(ctx context.Context, input model.NewCheckQueryInput) (*model.MutationResult, error) {
-	name := strings.TrimSpace(input.Name)
-	if name == "" {
-		return nil, fmt.Errorf("名前は必須です")
-	}
-
-	var descPtr *string
-	if input.Description != nil {
-		desc := strings.TrimSpace(*input.Description)
-		if desc != "" {
-			descPtr = &desc
-		}
-	}
-
-	if _, err := r.DB.InsertCheckQuery(name, descPtr); err != nil {
-		return nil, fmt.Errorf("チェッククエリの登録に失敗しました: %w", err)
-	}
-
-	message := "チェッククエリを登録しました"
-	return &model.MutationResult{
-		Success: true,
-		Message: &message,
-	}, nil
-}
-
 // CreateCheckResult is the resolver for the createCheckResult field.
 func (r *mutationResolver) CreateCheckResult(ctx context.Context, input model.NewCheckResultInput) (*model.MutationResult, error) {
 	repositoryID := int(input.RepositoryID)
-	checkQueryID := int(input.CheckQueryID)
+	checkItemID := int(input.CheckItemID)
 
 	if repositoryID <= 0 {
 		return nil, fmt.Errorf("リポジトリIDが不正です")
 	}
-	if checkQueryID <= 0 {
-		return nil, fmt.Errorf("チェッククエリIDが不正です")
-	}
-
-	result := strings.TrimSpace(input.Result)
-	if !isValidResult(result) {
-		return nil, fmt.Errorf("結果は○, ×, △のいずれかを選択してください")
+	if checkItemID <= 0 {
+		return nil, fmt.Errorf("チェック項目IDが不正です")
 	}
 
 	var memoPtr *string
@@ -66,15 +33,55 @@ func (r *mutationResolver) CreateCheckResult(ctx context.Context, input model.Ne
 		}
 	}
 
-	if err := r.DB.UpsertMyCheckedRepository(repositoryID, checkQueryID, result, memoPtr); err != nil {
-		return nil, fmt.Errorf("判定結果の保存に失敗しました: %w", err)
+	if _, err := r.DB.CreateCheckResult(repositoryID, checkItemID, input.Result, memoPtr); err != nil {
+		return nil, fmt.Errorf("チェック結果の保存に失敗しました: %w", err)
 	}
 
-	if err := r.DB.UpsertRepositoryWebAppCheck(repositoryID, input.IsWebApp); err != nil {
-		return nil, fmt.Errorf("Webアプリ判定の保存に失敗しました: %w", err)
+	message := "チェック結果を登録しました"
+	return &model.MutationResult{
+		Success: true,
+		Message: &message,
+	}, nil
+}
+
+// UpdateCheckResult is the resolver for the updateCheckResult field.
+func (r *mutationResolver) UpdateCheckResult(ctx context.Context, id int32, input model.NewCheckResultInput) (*model.MutationResult, error) {
+	repositoryID := int(input.RepositoryID)
+	checkItemID := int(input.CheckItemID)
+
+	if repositoryID <= 0 {
+		return nil, fmt.Errorf("リポジトリIDが不正です")
+	}
+	if checkItemID <= 0 {
+		return nil, fmt.Errorf("チェック項目IDが不正です")
 	}
 
-	message := "判定結果を登録しました"
+	var memoPtr *string
+	if input.Memo != nil {
+		memo := strings.TrimSpace(*input.Memo)
+		if memo != "" {
+			memoPtr = &memo
+		}
+	}
+
+	if err := r.DB.UpdateCheckResult(int(id), repositoryID, checkItemID, input.Result, memoPtr); err != nil {
+		return nil, fmt.Errorf("チェック結果の更新に失敗しました: %w", err)
+	}
+
+	message := "チェック結果を更新しました"
+	return &model.MutationResult{
+		Success: true,
+		Message: &message,
+	}, nil
+}
+
+// DeleteCheckResult is the resolver for the deleteCheckResult field.
+func (r *mutationResolver) DeleteCheckResult(ctx context.Context, id int32) (*model.MutationResult, error) {
+	if err := r.DB.DeleteCheckResult(int(id)); err != nil {
+		return nil, fmt.Errorf("チェック結果の削除に失敗しました: %w", err)
+	}
+
+	message := "チェック結果を削除しました"
 	return &model.MutationResult{
 		Success: true,
 		Message: &message,
@@ -88,9 +95,9 @@ func (r *queryResolver) AdminDashboard(ctx context.Context, limit *int32) (*mode
 		l = int(*limit)
 	}
 
-	checkQueries, err := r.DB.GetCheckQueries()
+	patterns, err := r.DB.GetK8sPatterns()
 	if err != nil {
-		return nil, fmt.Errorf("チェッククエリの取得に失敗しました: %w", err)
+		return nil, fmt.Errorf("パターン一覧の取得に失敗しました: %w", err)
 	}
 
 	repos, err := r.DB.GetRepositories(l, 0)
@@ -98,32 +105,121 @@ func (r *queryResolver) AdminDashboard(ctx context.Context, limit *int32) (*mode
 		return nil, fmt.Errorf("リポジトリ一覧の取得に失敗しました: %w", err)
 	}
 
-	checkSummaries, err := r.DB.ListMyCheckSummaries(l)
+	checkResults, err := r.DB.GetCheckResults(nil)
 	if err != nil {
-		return nil, fmt.Errorf("判定履歴の取得に失敗しました: %w", err)
+		return nil, fmt.Errorf("チェック結果の取得に失敗しました: %w", err)
 	}
 
 	return &model.AdminDashboard{
-		CheckQueries:  convertCheckQueries(checkQueries),
-		Repositories:  convertRepositories(repos),
-		MyChecks:      convertMyChecks(checkSummaries),
-		ResultOptions: resultOptions,
+		Patterns:     convertK8sPatterns(patterns),
+		Repositories: convertRepositories(repos),
+		CheckResults: convertCheckResults(checkResults),
 	}, nil
 }
 
-func convertCheckQueries(queries []database.CheckQuery) []*model.CheckQuery {
-	result := make([]*model.CheckQuery, 0, len(queries))
-	for _, q := range queries {
+// Patterns is the resolver for the patterns field.
+func (r *queryResolver) Patterns(ctx context.Context) ([]*model.K8sPattern, error) {
+	patterns, err := r.DB.GetK8sPatterns()
+	if err != nil {
+		return nil, fmt.Errorf("パターン一覧の取得に失敗しました: %w", err)
+	}
+	return convertK8sPatterns(patterns), nil
+}
+
+// CheckItems is the resolver for the checkItems field.
+func (r *queryResolver) CheckItems(ctx context.Context, patternID *int32) ([]*model.CheckItem, error) {
+	var patternIDPtr *int
+	if patternID != nil {
+		id := int(*patternID)
+		patternIDPtr = &id
+	}
+
+	items, err := r.DB.GetCheckItems(patternIDPtr)
+	if err != nil {
+		return nil, fmt.Errorf("チェック項目の取得に失敗しました: %w", err)
+	}
+	return convertCheckItems(items), nil
+}
+
+// CheckResults is the resolver for the checkResults field.
+func (r *queryResolver) CheckResults(ctx context.Context, repositoryID *int32) ([]*model.CheckResult, error) {
+	var repositoryIDPtr *int
+	if repositoryID != nil {
+		id := int(*repositoryID)
+		repositoryIDPtr = &id
+	}
+
+	results, err := r.DB.GetCheckResults(repositoryIDPtr)
+	if err != nil {
+		return nil, fmt.Errorf("チェック結果の取得に失敗しました: %w", err)
+	}
+	return convertCheckResults(results), nil
+}
+
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
+
+// Query returns QueryResolver implementation.
+func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
+
+type mutationResolver struct{ *Resolver }
+type queryResolver struct{ *Resolver }
+
+// Helper functions to convert database models to GraphQL models
+
+func convertK8sPatterns(patterns []database.K8sPattern) []*model.K8sPattern {
+	result := make([]*model.K8sPattern, 0, len(patterns))
+	for _, p := range patterns {
 		var description *string
-		if q.Description != nil && strings.TrimSpace(*q.Description) != "" {
-			desc := strings.TrimSpace(*q.Description)
+		if p.Description != nil && strings.TrimSpace(*p.Description) != "" {
+			desc := strings.TrimSpace(*p.Description)
 			description = &desc
 		}
-		result = append(result, &model.CheckQuery{
-			ID:          int32(q.ID),
-			Name:        q.Name,
+		result = append(result, &model.K8sPattern{
+			ID:          int32(p.ID),
+			Name:        p.Name,
 			Description: description,
-			CreatedAt:   q.CreatedAt,
+			CreatedAt:   p.CreatedAt,
+		})
+	}
+	return result
+}
+
+func convertCheckItems(items []database.CheckItem) []*model.CheckItem {
+	result := make([]*model.CheckItem, 0, len(items))
+	for _, item := range items {
+		var description *string
+		if item.Description != nil && strings.TrimSpace(*item.Description) != "" {
+			desc := strings.TrimSpace(*item.Description)
+			description = &desc
+		}
+		result = append(result, &model.CheckItem{
+			ID:          int32(item.ID),
+			PatternID:   int32(item.PatternID),
+			Name:        item.Name,
+			Description: description,
+			CreatedAt:   item.CreatedAt,
+		})
+	}
+	return result
+}
+
+func convertCheckResults(results []database.CheckResult) []*model.CheckResult {
+	result := make([]*model.CheckResult, 0, len(results))
+	for _, r := range results {
+		var memo *string
+		if r.Memo != nil && strings.TrimSpace(*r.Memo) != "" {
+			m := strings.TrimSpace(*r.Memo)
+			memo = &m
+		}
+		result = append(result, &model.CheckResult{
+			ID:           int32(r.ID),
+			RepositoryID: int32(r.RepositoryID),
+			CheckItemID:  int32(r.CheckItemID),
+			Result:       r.Result,
+			Memo:         memo,
+			CheckedAt:    r.CheckedAt,
+			UpdatedAt:    r.UpdatedAt,
 		})
 	}
 	return result
@@ -148,43 +244,3 @@ func convertRepositories(repos []database.Repository) []*model.Repository {
 	}
 	return result
 }
-
-func convertMyChecks(checks []database.MyCheckSummary) []*model.MyCheck {
-	result := make([]*model.MyCheck, 0, len(checks))
-	for _, c := range checks {
-		var memo *string
-		if c.Memo != nil && strings.TrimSpace(*c.Memo) != "" {
-			m := strings.TrimSpace(*c.Memo)
-			memo = &m
-		}
-		result = append(result, &model.MyCheck{
-			RepositoryID:   int32(c.RepositoryID),
-			RepositoryName: c.RepositoryName,
-			CheckQueryID:   int32(c.CheckQueryID),
-			CheckQueryName: c.CheckQueryName,
-			Result:         c.Result,
-			Memo:           memo,
-			UpdatedAt:      c.UpdatedAt,
-			IsWebApp:       c.IsWebApp,
-		})
-	}
-	return result
-}
-
-func isValidResult(value string) bool {
-	for _, opt := range resultOptions {
-		if opt == value {
-			return true
-		}
-	}
-	return false
-}
-
-// Mutation returns MutationResolver implementation.
-func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
-
-// Query returns QueryResolver implementation.
-func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
-
-type mutationResolver struct{ *Resolver }
-type queryResolver struct{ *Resolver }

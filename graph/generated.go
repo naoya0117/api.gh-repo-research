@@ -49,13 +49,34 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	AdminDashboard struct {
-		CheckQueries  func(childComplexity int) int
-		MyChecks      func(childComplexity int) int
-		Repositories  func(childComplexity int) int
-		ResultOptions func(childComplexity int) int
+		CheckResults func(childComplexity int) int
+		Patterns     func(childComplexity int) int
+		Repositories func(childComplexity int) int
 	}
 
-	CheckQuery struct {
+	CheckItem struct {
+		CreatedAt   func(childComplexity int) int
+		Description func(childComplexity int) int
+		ID          func(childComplexity int) int
+		Name        func(childComplexity int) int
+		Pattern     func(childComplexity int) int
+		PatternID   func(childComplexity int) int
+	}
+
+	CheckResult struct {
+		CheckItem    func(childComplexity int) int
+		CheckItemID  func(childComplexity int) int
+		CheckedAt    func(childComplexity int) int
+		ID           func(childComplexity int) int
+		Memo         func(childComplexity int) int
+		Repository   func(childComplexity int) int
+		RepositoryID func(childComplexity int) int
+		Result       func(childComplexity int) int
+		UpdatedAt    func(childComplexity int) int
+	}
+
+	K8sPattern struct {
+		CheckItems  func(childComplexity int) int
 		CreatedAt   func(childComplexity int) int
 		Description func(childComplexity int) int
 		ID          func(childComplexity int) int
@@ -63,8 +84,9 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreateCheckQuery  func(childComplexity int, input model.NewCheckQueryInput) int
 		CreateCheckResult func(childComplexity int, input model.NewCheckResultInput) int
+		DeleteCheckResult func(childComplexity int, id int32) int
+		UpdateCheckResult func(childComplexity int, id int32, input model.NewCheckResultInput) int
 	}
 
 	MutationResult struct {
@@ -72,19 +94,11 @@ type ComplexityRoot struct {
 		Success func(childComplexity int) int
 	}
 
-	MyCheck struct {
-		CheckQueryID   func(childComplexity int) int
-		CheckQueryName func(childComplexity int) int
-		IsWebApp       func(childComplexity int) int
-		Memo           func(childComplexity int) int
-		RepositoryID   func(childComplexity int) int
-		RepositoryName func(childComplexity int) int
-		Result         func(childComplexity int) int
-		UpdatedAt      func(childComplexity int) int
-	}
-
 	Query struct {
 		AdminDashboard func(childComplexity int, limit *int32) int
+		CheckItems     func(childComplexity int, patternID *int32) int
+		CheckResults   func(childComplexity int, repositoryID *int32) int
+		Patterns       func(childComplexity int) int
 	}
 
 	Repository struct {
@@ -98,11 +112,15 @@ type ComplexityRoot struct {
 }
 
 type MutationResolver interface {
-	CreateCheckQuery(ctx context.Context, input model.NewCheckQueryInput) (*model.MutationResult, error)
 	CreateCheckResult(ctx context.Context, input model.NewCheckResultInput) (*model.MutationResult, error)
+	UpdateCheckResult(ctx context.Context, id int32, input model.NewCheckResultInput) (*model.MutationResult, error)
+	DeleteCheckResult(ctx context.Context, id int32) (*model.MutationResult, error)
 }
 type QueryResolver interface {
 	AdminDashboard(ctx context.Context, limit *int32) (*model.AdminDashboard, error)
+	Patterns(ctx context.Context) ([]*model.K8sPattern, error)
+	CheckItems(ctx context.Context, patternID *int32) ([]*model.CheckItem, error)
+	CheckResults(ctx context.Context, repositoryID *int32) ([]*model.CheckResult, error)
 }
 
 type executableSchema struct {
@@ -124,19 +142,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	_ = ec
 	switch typeName + "." + field {
 
-	case "AdminDashboard.checkQueries":
-		if e.complexity.AdminDashboard.CheckQueries == nil {
+	case "AdminDashboard.checkResults":
+		if e.complexity.AdminDashboard.CheckResults == nil {
 			break
 		}
 
-		return e.complexity.AdminDashboard.CheckQueries(childComplexity), true
+		return e.complexity.AdminDashboard.CheckResults(childComplexity), true
 
-	case "AdminDashboard.myChecks":
-		if e.complexity.AdminDashboard.MyChecks == nil {
+	case "AdminDashboard.patterns":
+		if e.complexity.AdminDashboard.Patterns == nil {
 			break
 		}
 
-		return e.complexity.AdminDashboard.MyChecks(childComplexity), true
+		return e.complexity.AdminDashboard.Patterns(childComplexity), true
 
 	case "AdminDashboard.repositories":
 		if e.complexity.AdminDashboard.Repositories == nil {
@@ -145,52 +163,145 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.AdminDashboard.Repositories(childComplexity), true
 
-	case "AdminDashboard.resultOptions":
-		if e.complexity.AdminDashboard.ResultOptions == nil {
+	case "CheckItem.createdAt":
+		if e.complexity.CheckItem.CreatedAt == nil {
 			break
 		}
 
-		return e.complexity.AdminDashboard.ResultOptions(childComplexity), true
+		return e.complexity.CheckItem.CreatedAt(childComplexity), true
 
-	case "CheckQuery.createdAt":
-		if e.complexity.CheckQuery.CreatedAt == nil {
+	case "CheckItem.description":
+		if e.complexity.CheckItem.Description == nil {
 			break
 		}
 
-		return e.complexity.CheckQuery.CreatedAt(childComplexity), true
+		return e.complexity.CheckItem.Description(childComplexity), true
 
-	case "CheckQuery.description":
-		if e.complexity.CheckQuery.Description == nil {
+	case "CheckItem.id":
+		if e.complexity.CheckItem.ID == nil {
 			break
 		}
 
-		return e.complexity.CheckQuery.Description(childComplexity), true
+		return e.complexity.CheckItem.ID(childComplexity), true
 
-	case "CheckQuery.id":
-		if e.complexity.CheckQuery.ID == nil {
+	case "CheckItem.name":
+		if e.complexity.CheckItem.Name == nil {
 			break
 		}
 
-		return e.complexity.CheckQuery.ID(childComplexity), true
+		return e.complexity.CheckItem.Name(childComplexity), true
 
-	case "CheckQuery.name":
-		if e.complexity.CheckQuery.Name == nil {
+	case "CheckItem.pattern":
+		if e.complexity.CheckItem.Pattern == nil {
 			break
 		}
 
-		return e.complexity.CheckQuery.Name(childComplexity), true
+		return e.complexity.CheckItem.Pattern(childComplexity), true
 
-	case "Mutation.createCheckQuery":
-		if e.complexity.Mutation.CreateCheckQuery == nil {
+	case "CheckItem.patternId":
+		if e.complexity.CheckItem.PatternID == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_createCheckQuery_args(ctx, rawArgs)
-		if err != nil {
-			return 0, false
+		return e.complexity.CheckItem.PatternID(childComplexity), true
+
+	case "CheckResult.checkItem":
+		if e.complexity.CheckResult.CheckItem == nil {
+			break
 		}
 
-		return e.complexity.Mutation.CreateCheckQuery(childComplexity, args["input"].(model.NewCheckQueryInput)), true
+		return e.complexity.CheckResult.CheckItem(childComplexity), true
+
+	case "CheckResult.checkItemId":
+		if e.complexity.CheckResult.CheckItemID == nil {
+			break
+		}
+
+		return e.complexity.CheckResult.CheckItemID(childComplexity), true
+
+	case "CheckResult.checkedAt":
+		if e.complexity.CheckResult.CheckedAt == nil {
+			break
+		}
+
+		return e.complexity.CheckResult.CheckedAt(childComplexity), true
+
+	case "CheckResult.id":
+		if e.complexity.CheckResult.ID == nil {
+			break
+		}
+
+		return e.complexity.CheckResult.ID(childComplexity), true
+
+	case "CheckResult.memo":
+		if e.complexity.CheckResult.Memo == nil {
+			break
+		}
+
+		return e.complexity.CheckResult.Memo(childComplexity), true
+
+	case "CheckResult.repository":
+		if e.complexity.CheckResult.Repository == nil {
+			break
+		}
+
+		return e.complexity.CheckResult.Repository(childComplexity), true
+
+	case "CheckResult.repositoryId":
+		if e.complexity.CheckResult.RepositoryID == nil {
+			break
+		}
+
+		return e.complexity.CheckResult.RepositoryID(childComplexity), true
+
+	case "CheckResult.result":
+		if e.complexity.CheckResult.Result == nil {
+			break
+		}
+
+		return e.complexity.CheckResult.Result(childComplexity), true
+
+	case "CheckResult.updatedAt":
+		if e.complexity.CheckResult.UpdatedAt == nil {
+			break
+		}
+
+		return e.complexity.CheckResult.UpdatedAt(childComplexity), true
+
+	case "K8sPattern.checkItems":
+		if e.complexity.K8sPattern.CheckItems == nil {
+			break
+		}
+
+		return e.complexity.K8sPattern.CheckItems(childComplexity), true
+
+	case "K8sPattern.createdAt":
+		if e.complexity.K8sPattern.CreatedAt == nil {
+			break
+		}
+
+		return e.complexity.K8sPattern.CreatedAt(childComplexity), true
+
+	case "K8sPattern.description":
+		if e.complexity.K8sPattern.Description == nil {
+			break
+		}
+
+		return e.complexity.K8sPattern.Description(childComplexity), true
+
+	case "K8sPattern.id":
+		if e.complexity.K8sPattern.ID == nil {
+			break
+		}
+
+		return e.complexity.K8sPattern.ID(childComplexity), true
+
+	case "K8sPattern.name":
+		if e.complexity.K8sPattern.Name == nil {
+			break
+		}
+
+		return e.complexity.K8sPattern.Name(childComplexity), true
 
 	case "Mutation.createCheckResult":
 		if e.complexity.Mutation.CreateCheckResult == nil {
@@ -203,6 +314,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Mutation.CreateCheckResult(childComplexity, args["input"].(model.NewCheckResultInput)), true
+
+	case "Mutation.deleteCheckResult":
+		if e.complexity.Mutation.DeleteCheckResult == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteCheckResult_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteCheckResult(childComplexity, args["id"].(int32)), true
+
+	case "Mutation.updateCheckResult":
+		if e.complexity.Mutation.UpdateCheckResult == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateCheckResult_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateCheckResult(childComplexity, args["id"].(int32), args["input"].(model.NewCheckResultInput)), true
 
 	case "MutationResult.message":
 		if e.complexity.MutationResult.Message == nil {
@@ -218,62 +353,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.complexity.MutationResult.Success(childComplexity), true
 
-	case "MyCheck.checkQueryID":
-		if e.complexity.MyCheck.CheckQueryID == nil {
-			break
-		}
-
-		return e.complexity.MyCheck.CheckQueryID(childComplexity), true
-
-	case "MyCheck.checkQueryName":
-		if e.complexity.MyCheck.CheckQueryName == nil {
-			break
-		}
-
-		return e.complexity.MyCheck.CheckQueryName(childComplexity), true
-
-	case "MyCheck.isWebApp":
-		if e.complexity.MyCheck.IsWebApp == nil {
-			break
-		}
-
-		return e.complexity.MyCheck.IsWebApp(childComplexity), true
-
-	case "MyCheck.memo":
-		if e.complexity.MyCheck.Memo == nil {
-			break
-		}
-
-		return e.complexity.MyCheck.Memo(childComplexity), true
-
-	case "MyCheck.repositoryID":
-		if e.complexity.MyCheck.RepositoryID == nil {
-			break
-		}
-
-		return e.complexity.MyCheck.RepositoryID(childComplexity), true
-
-	case "MyCheck.repositoryName":
-		if e.complexity.MyCheck.RepositoryName == nil {
-			break
-		}
-
-		return e.complexity.MyCheck.RepositoryName(childComplexity), true
-
-	case "MyCheck.result":
-		if e.complexity.MyCheck.Result == nil {
-			break
-		}
-
-		return e.complexity.MyCheck.Result(childComplexity), true
-
-	case "MyCheck.updatedAt":
-		if e.complexity.MyCheck.UpdatedAt == nil {
-			break
-		}
-
-		return e.complexity.MyCheck.UpdatedAt(childComplexity), true
-
 	case "Query.adminDashboard":
 		if e.complexity.Query.AdminDashboard == nil {
 			break
@@ -285,6 +364,37 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.AdminDashboard(childComplexity, args["limit"].(*int32)), true
+
+	case "Query.checkItems":
+		if e.complexity.Query.CheckItems == nil {
+			break
+		}
+
+		args, err := ec.field_Query_checkItems_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.CheckItems(childComplexity, args["patternId"].(*int32)), true
+
+	case "Query.checkResults":
+		if e.complexity.Query.CheckResults == nil {
+			break
+		}
+
+		args, err := ec.field_Query_checkResults_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.CheckResults(childComplexity, args["repositoryId"].(*int32)), true
+
+	case "Query.patterns":
+		if e.complexity.Query.Patterns == nil {
+			break
+		}
+
+		return e.complexity.Query.Patterns(childComplexity), true
 
 	case "Repository.createdAt":
 		if e.complexity.Repository.CreatedAt == nil {
@@ -336,7 +446,6 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := executionContext{opCtx, e, 0, 0, make(chan graphql.DeferredResult)}
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
-		ec.unmarshalInputNewCheckQueryInput,
 		ec.unmarshalInputNewCheckResultInput,
 	)
 	first := true
@@ -454,17 +563,6 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
 // region    ***************************** args.gotpl *****************************
 
-func (ec *executionContext) field_Mutation_createCheckQuery_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
-	var err error
-	args := map[string]any{}
-	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNNewCheckQueryInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐNewCheckQueryInput)
-	if err != nil {
-		return nil, err
-	}
-	args["input"] = arg0
-	return args, nil
-}
-
 func (ec *executionContext) field_Mutation_createCheckResult_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -473,6 +571,33 @@ func (ec *executionContext) field_Mutation_createCheckResult_args(ctx context.Co
 		return nil, err
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteCheckResult_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNInt2int32)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateCheckResult_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id", ec.unmarshalNInt2int32)
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input", ec.unmarshalNNewCheckResultInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐNewCheckResultInput)
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
 	return args, nil
 }
 
@@ -495,6 +620,28 @@ func (ec *executionContext) field_Query_adminDashboard_args(ctx context.Context,
 		return nil, err
 	}
 	args["limit"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_checkItems_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "patternId", ec.unmarshalOInt2ᚖint32)
+	if err != nil {
+		return nil, err
+	}
+	args["patternId"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_checkResults_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "repositoryId", ec.unmarshalOInt2ᚖint32)
+	if err != nil {
+		return nil, err
+	}
+	args["repositoryId"] = arg0
 	return args, nil
 }
 
@@ -550,8 +697,8 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 
 // region    **************************** field.gotpl *****************************
 
-func (ec *executionContext) _AdminDashboard_checkQueries(ctx context.Context, field graphql.CollectedField, obj *model.AdminDashboard) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_AdminDashboard_checkQueries(ctx, field)
+func (ec *executionContext) _AdminDashboard_patterns(ctx context.Context, field graphql.CollectedField, obj *model.AdminDashboard) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_AdminDashboard_patterns(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -564,7 +711,7 @@ func (ec *executionContext) _AdminDashboard_checkQueries(ctx context.Context, fi
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.CheckQueries, nil
+		return obj.Patterns, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -576,12 +723,12 @@ func (ec *executionContext) _AdminDashboard_checkQueries(ctx context.Context, fi
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*model.CheckQuery)
+	res := resTmp.([]*model.K8sPattern)
 	fc.Result = res
-	return ec.marshalNCheckQuery2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckQueryᚄ(ctx, field.Selections, res)
+	return ec.marshalNK8sPattern2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐK8sPatternᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_AdminDashboard_checkQueries(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_AdminDashboard_patterns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "AdminDashboard",
 		Field:      field,
@@ -590,15 +737,17 @@ func (ec *executionContext) fieldContext_AdminDashboard_checkQueries(_ context.C
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
 			case "id":
-				return ec.fieldContext_CheckQuery_id(ctx, field)
+				return ec.fieldContext_K8sPattern_id(ctx, field)
 			case "name":
-				return ec.fieldContext_CheckQuery_name(ctx, field)
+				return ec.fieldContext_K8sPattern_name(ctx, field)
 			case "description":
-				return ec.fieldContext_CheckQuery_description(ctx, field)
+				return ec.fieldContext_K8sPattern_description(ctx, field)
+			case "checkItems":
+				return ec.fieldContext_K8sPattern_checkItems(ctx, field)
 			case "createdAt":
-				return ec.fieldContext_CheckQuery_createdAt(ctx, field)
+				return ec.fieldContext_K8sPattern_createdAt(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type CheckQuery", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type K8sPattern", field.Name)
 		},
 	}
 	return fc, nil
@@ -662,8 +811,8 @@ func (ec *executionContext) fieldContext_AdminDashboard_repositories(_ context.C
 	return fc, nil
 }
 
-func (ec *executionContext) _AdminDashboard_myChecks(ctx context.Context, field graphql.CollectedField, obj *model.AdminDashboard) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_AdminDashboard_myChecks(ctx, field)
+func (ec *executionContext) _AdminDashboard_checkResults(ctx context.Context, field graphql.CollectedField, obj *model.AdminDashboard) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_AdminDashboard_checkResults(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -676,7 +825,7 @@ func (ec *executionContext) _AdminDashboard_myChecks(ctx context.Context, field 
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.MyChecks, nil
+		return obj.CheckResults, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -688,12 +837,12 @@ func (ec *executionContext) _AdminDashboard_myChecks(ctx context.Context, field 
 		}
 		return graphql.Null
 	}
-	res := resTmp.([]*model.MyCheck)
+	res := resTmp.([]*model.CheckResult)
 	fc.Result = res
-	return ec.marshalNMyCheck2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMyCheckᚄ(ctx, field.Selections, res)
+	return ec.marshalNCheckResult2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckResultᚄ(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_AdminDashboard_myChecks(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_AdminDashboard_checkResults(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "AdminDashboard",
 		Field:      field,
@@ -701,75 +850,33 @@ func (ec *executionContext) fieldContext_AdminDashboard_myChecks(_ context.Conte
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "repositoryID":
-				return ec.fieldContext_MyCheck_repositoryID(ctx, field)
-			case "repositoryName":
-				return ec.fieldContext_MyCheck_repositoryName(ctx, field)
-			case "checkQueryID":
-				return ec.fieldContext_MyCheck_checkQueryID(ctx, field)
-			case "checkQueryName":
-				return ec.fieldContext_MyCheck_checkQueryName(ctx, field)
+			case "id":
+				return ec.fieldContext_CheckResult_id(ctx, field)
+			case "repositoryId":
+				return ec.fieldContext_CheckResult_repositoryId(ctx, field)
+			case "repository":
+				return ec.fieldContext_CheckResult_repository(ctx, field)
+			case "checkItemId":
+				return ec.fieldContext_CheckResult_checkItemId(ctx, field)
+			case "checkItem":
+				return ec.fieldContext_CheckResult_checkItem(ctx, field)
 			case "result":
-				return ec.fieldContext_MyCheck_result(ctx, field)
+				return ec.fieldContext_CheckResult_result(ctx, field)
 			case "memo":
-				return ec.fieldContext_MyCheck_memo(ctx, field)
+				return ec.fieldContext_CheckResult_memo(ctx, field)
+			case "checkedAt":
+				return ec.fieldContext_CheckResult_checkedAt(ctx, field)
 			case "updatedAt":
-				return ec.fieldContext_MyCheck_updatedAt(ctx, field)
-			case "isWebApp":
-				return ec.fieldContext_MyCheck_isWebApp(ctx, field)
+				return ec.fieldContext_CheckResult_updatedAt(ctx, field)
 			}
-			return nil, fmt.Errorf("no field named %q was found under type MyCheck", field.Name)
+			return nil, fmt.Errorf("no field named %q was found under type CheckResult", field.Name)
 		},
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _AdminDashboard_resultOptions(ctx context.Context, field graphql.CollectedField, obj *model.AdminDashboard) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_AdminDashboard_resultOptions(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.ResultOptions, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.([]string)
-	fc.Result = res
-	return ec.marshalNString2ᚕstringᚄ(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_AdminDashboard_resultOptions(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "AdminDashboard",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _CheckQuery_id(ctx context.Context, field graphql.CollectedField, obj *model.CheckQuery) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_CheckQuery_id(ctx, field)
+func (ec *executionContext) _CheckItem_id(ctx context.Context, field graphql.CollectedField, obj *model.CheckItem) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckItem_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -799,9 +906,9 @@ func (ec *executionContext) _CheckQuery_id(ctx context.Context, field graphql.Co
 	return ec.marshalNInt2int32(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_CheckQuery_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_CheckItem_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "CheckQuery",
+		Object:     "CheckItem",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -812,8 +919,108 @@ func (ec *executionContext) fieldContext_CheckQuery_id(_ context.Context, field 
 	return fc, nil
 }
 
-func (ec *executionContext) _CheckQuery_name(ctx context.Context, field graphql.CollectedField, obj *model.CheckQuery) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_CheckQuery_name(ctx, field)
+func (ec *executionContext) _CheckItem_patternId(ctx context.Context, field graphql.CollectedField, obj *model.CheckItem) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckItem_patternId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.PatternID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CheckItem_patternId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckItem",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckItem_pattern(ctx context.Context, field graphql.CollectedField, obj *model.CheckItem) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckItem_pattern(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Pattern, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.K8sPattern)
+	fc.Result = res
+	return ec.marshalNK8sPattern2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐK8sPattern(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CheckItem_pattern(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckItem",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_K8sPattern_id(ctx, field)
+			case "name":
+				return ec.fieldContext_K8sPattern_name(ctx, field)
+			case "description":
+				return ec.fieldContext_K8sPattern_description(ctx, field)
+			case "checkItems":
+				return ec.fieldContext_K8sPattern_checkItems(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_K8sPattern_createdAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type K8sPattern", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckItem_name(ctx context.Context, field graphql.CollectedField, obj *model.CheckItem) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckItem_name(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -843,9 +1050,9 @@ func (ec *executionContext) _CheckQuery_name(ctx context.Context, field graphql.
 	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_CheckQuery_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_CheckItem_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "CheckQuery",
+		Object:     "CheckItem",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -856,8 +1063,8 @@ func (ec *executionContext) fieldContext_CheckQuery_name(_ context.Context, fiel
 	return fc, nil
 }
 
-func (ec *executionContext) _CheckQuery_description(ctx context.Context, field graphql.CollectedField, obj *model.CheckQuery) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_CheckQuery_description(ctx, field)
+func (ec *executionContext) _CheckItem_description(ctx context.Context, field graphql.CollectedField, obj *model.CheckItem) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckItem_description(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -884,9 +1091,9 @@ func (ec *executionContext) _CheckQuery_description(ctx context.Context, field g
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_CheckQuery_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_CheckItem_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "CheckQuery",
+		Object:     "CheckItem",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -897,8 +1104,8 @@ func (ec *executionContext) fieldContext_CheckQuery_description(_ context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _CheckQuery_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.CheckQuery) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_CheckQuery_createdAt(ctx, field)
+func (ec *executionContext) _CheckItem_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.CheckItem) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckItem_createdAt(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -928,9 +1135,9 @@ func (ec *executionContext) _CheckQuery_createdAt(ctx context.Context, field gra
 	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_CheckQuery_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_CheckItem_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "CheckQuery",
+		Object:     "CheckItem",
 		Field:      field,
 		IsMethod:   false,
 		IsResolver: false,
@@ -941,8 +1148,8 @@ func (ec *executionContext) fieldContext_CheckQuery_createdAt(_ context.Context,
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_createCheckQuery(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_Mutation_createCheckQuery(ctx, field)
+func (ec *executionContext) _CheckResult_id(ctx context.Context, field graphql.CollectedField, obj *model.CheckResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckResult_id(ctx, field)
 	if err != nil {
 		return graphql.Null
 	}
@@ -955,7 +1162,7 @@ func (ec *executionContext) _Mutation_createCheckQuery(ctx context.Context, fiel
 	}()
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().CreateCheckQuery(rctx, fc.Args["input"].(model.NewCheckQueryInput))
+		return obj.ID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -967,37 +1174,628 @@ func (ec *executionContext) _Mutation_createCheckQuery(ctx context.Context, fiel
 		}
 		return graphql.Null
 	}
-	res := resTmp.(*model.MutationResult)
+	res := resTmp.(int32)
 	fc.Result = res
-	return ec.marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx, field.Selections, res)
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) fieldContext_Mutation_createCheckQuery(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_CheckResult_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
-		Object:     "Mutation",
+		Object:     "CheckResult",
 		Field:      field,
-		IsMethod:   true,
-		IsResolver: true,
+		IsMethod:   false,
+		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			switch field.Name {
-			case "success":
-				return ec.fieldContext_MutationResult_success(ctx, field)
-			case "message":
-				return ec.fieldContext_MutationResult_message(ctx, field)
-			}
-			return nil, fmt.Errorf("no field named %q was found under type MutationResult", field.Name)
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckResult_repositoryId(ctx context.Context, field graphql.CollectedField, obj *model.CheckResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckResult_repositoryId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
 	defer func() {
 		if r := recover(); r != nil {
-			err = ec.Recover(ctx, r)
-			ec.Error(ctx, err)
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
 		}
 	}()
-	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_createCheckQuery_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.RepositoryID, nil
+	})
+	if err != nil {
 		ec.Error(ctx, err)
-		return fc, err
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CheckResult_repositoryId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckResult_repository(ctx context.Context, field graphql.CollectedField, obj *model.CheckResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckResult_repository(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Repository, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Repository)
+	fc.Result = res
+	return ec.marshalNRepository2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐRepository(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CheckResult_repository(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_Repository_id(ctx, field)
+			case "nameWithOwner":
+				return ec.fieldContext_Repository_nameWithOwner(ctx, field)
+			case "stargazerCount":
+				return ec.fieldContext_Repository_stargazerCount(ctx, field)
+			case "primaryLanguage":
+				return ec.fieldContext_Repository_primaryLanguage(ctx, field)
+			case "hasDockerfile":
+				return ec.fieldContext_Repository_hasDockerfile(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_Repository_createdAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type Repository", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckResult_checkItemId(ctx context.Context, field graphql.CollectedField, obj *model.CheckResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckResult_checkItemId(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CheckItemID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CheckResult_checkItemId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckResult_checkItem(ctx context.Context, field graphql.CollectedField, obj *model.CheckResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckResult_checkItem(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CheckItem, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.CheckItem)
+	fc.Result = res
+	return ec.marshalNCheckItem2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckItem(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CheckResult_checkItem(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CheckItem_id(ctx, field)
+			case "patternId":
+				return ec.fieldContext_CheckItem_patternId(ctx, field)
+			case "pattern":
+				return ec.fieldContext_CheckItem_pattern(ctx, field)
+			case "name":
+				return ec.fieldContext_CheckItem_name(ctx, field)
+			case "description":
+				return ec.fieldContext_CheckItem_description(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_CheckItem_createdAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CheckItem", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckResult_result(ctx context.Context, field graphql.CollectedField, obj *model.CheckResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckResult_result(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Result, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(bool)
+	fc.Result = res
+	return ec.marshalNBoolean2bool(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CheckResult_result(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckResult_memo(ctx context.Context, field graphql.CollectedField, obj *model.CheckResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckResult_memo(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Memo, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CheckResult_memo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckResult_checkedAt(ctx context.Context, field graphql.CollectedField, obj *model.CheckResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckResult_checkedAt(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CheckedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(time.Time)
+	fc.Result = res
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CheckResult_checkedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CheckResult_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.CheckResult) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_CheckResult_updatedAt(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.UpdatedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(time.Time)
+	fc.Result = res
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_CheckResult_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CheckResult",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _K8sPattern_id(ctx context.Context, field graphql.CollectedField, obj *model.K8sPattern) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_K8sPattern_id(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ID, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_K8sPattern_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "K8sPattern",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _K8sPattern_name(ctx context.Context, field graphql.CollectedField, obj *model.K8sPattern) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_K8sPattern_name(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Name, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_K8sPattern_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "K8sPattern",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _K8sPattern_description(ctx context.Context, field graphql.CollectedField, obj *model.K8sPattern) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_K8sPattern_description(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Description, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*string)
+	fc.Result = res
+	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_K8sPattern_description(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "K8sPattern",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _K8sPattern_checkItems(ctx context.Context, field graphql.CollectedField, obj *model.K8sPattern) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_K8sPattern_checkItems(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CheckItems, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.CheckItem)
+	fc.Result = res
+	return ec.marshalNCheckItem2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckItemᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_K8sPattern_checkItems(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "K8sPattern",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CheckItem_id(ctx, field)
+			case "patternId":
+				return ec.fieldContext_CheckItem_patternId(ctx, field)
+			case "pattern":
+				return ec.fieldContext_CheckItem_pattern(ctx, field)
+			case "name":
+				return ec.fieldContext_CheckItem_name(ctx, field)
+			case "description":
+				return ec.fieldContext_CheckItem_description(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_CheckItem_createdAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CheckItem", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _K8sPattern_createdAt(ctx context.Context, field graphql.CollectedField, obj *model.K8sPattern) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_K8sPattern_createdAt(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.CreatedAt, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(time.Time)
+	fc.Result = res
+	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_K8sPattern_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "K8sPattern",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Time does not have child fields")
+		},
 	}
 	return fc, nil
 }
@@ -1057,6 +1855,128 @@ func (ec *executionContext) fieldContext_Mutation_createCheckResult(ctx context.
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_createCheckResult_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateCheckResult(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_updateCheckResult(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpdateCheckResult(rctx, fc.Args["id"].(int32), fc.Args["input"].(model.NewCheckResultInput))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.MutationResult)
+	fc.Result = res
+	return ec.marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_updateCheckResult(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_MutationResult_success(ctx, field)
+			case "message":
+				return ec.fieldContext_MutationResult_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type MutationResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateCheckResult_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteCheckResult(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Mutation_deleteCheckResult(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteCheckResult(rctx, fc.Args["id"].(int32))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.MutationResult)
+	fc.Result = res
+	return ec.marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Mutation_deleteCheckResult(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "success":
+				return ec.fieldContext_MutationResult_success(ctx, field)
+			case "message":
+				return ec.fieldContext_MutationResult_message(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type MutationResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteCheckResult_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -1148,352 +2068,6 @@ func (ec *executionContext) fieldContext_MutationResult_message(_ context.Contex
 	return fc, nil
 }
 
-func (ec *executionContext) _MyCheck_repositoryID(ctx context.Context, field graphql.CollectedField, obj *model.MyCheck) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MyCheck_repositoryID(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.RepositoryID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(int32)
-	fc.Result = res
-	return ec.marshalNInt2int32(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_MyCheck_repositoryID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "MyCheck",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _MyCheck_repositoryName(ctx context.Context, field graphql.CollectedField, obj *model.MyCheck) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MyCheck_repositoryName(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.RepositoryName, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_MyCheck_repositoryName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "MyCheck",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _MyCheck_checkQueryID(ctx context.Context, field graphql.CollectedField, obj *model.MyCheck) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MyCheck_checkQueryID(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.CheckQueryID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(int32)
-	fc.Result = res
-	return ec.marshalNInt2int32(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_MyCheck_checkQueryID(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "MyCheck",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Int does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _MyCheck_checkQueryName(ctx context.Context, field graphql.CollectedField, obj *model.MyCheck) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MyCheck_checkQueryName(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.CheckQueryName, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_MyCheck_checkQueryName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "MyCheck",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _MyCheck_result(ctx context.Context, field graphql.CollectedField, obj *model.MyCheck) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MyCheck_result(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Result, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_MyCheck_result(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "MyCheck",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _MyCheck_memo(ctx context.Context, field graphql.CollectedField, obj *model.MyCheck) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MyCheck_memo(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.Memo, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*string)
-	fc.Result = res
-	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_MyCheck_memo(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "MyCheck",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _MyCheck_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.MyCheck) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MyCheck_updatedAt(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.UpdatedAt, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(time.Time)
-	fc.Result = res
-	return ec.marshalNTime2timeᚐTime(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_MyCheck_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "MyCheck",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Time does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
-func (ec *executionContext) _MyCheck_isWebApp(ctx context.Context, field graphql.CollectedField, obj *model.MyCheck) (ret graphql.Marshaler) {
-	fc, err := ec.fieldContext_MyCheck_isWebApp(ctx, field)
-	if err != nil {
-		return graphql.Null
-	}
-	ctx = graphql.WithFieldContext(ctx, fc)
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.IsWebApp, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*bool)
-	fc.Result = res
-	return ec.marshalOBoolean2ᚖbool(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) fieldContext_MyCheck_isWebApp(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	fc = &graphql.FieldContext{
-		Object:     "MyCheck",
-		Field:      field,
-		IsMethod:   false,
-		IsResolver: false,
-		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type Boolean does not have child fields")
-		},
-	}
-	return fc, nil
-}
-
 func (ec *executionContext) _Query_adminDashboard(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Query_adminDashboard(ctx, field)
 	if err != nil {
@@ -1533,14 +2107,12 @@ func (ec *executionContext) fieldContext_Query_adminDashboard(ctx context.Contex
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			switch field.Name {
-			case "checkQueries":
-				return ec.fieldContext_AdminDashboard_checkQueries(ctx, field)
+			case "patterns":
+				return ec.fieldContext_AdminDashboard_patterns(ctx, field)
 			case "repositories":
 				return ec.fieldContext_AdminDashboard_repositories(ctx, field)
-			case "myChecks":
-				return ec.fieldContext_AdminDashboard_myChecks(ctx, field)
-			case "resultOptions":
-				return ec.fieldContext_AdminDashboard_resultOptions(ctx, field)
+			case "checkResults":
+				return ec.fieldContext_AdminDashboard_checkResults(ctx, field)
 			}
 			return nil, fmt.Errorf("no field named %q was found under type AdminDashboard", field.Name)
 		},
@@ -1553,6 +2125,206 @@ func (ec *executionContext) fieldContext_Query_adminDashboard(ctx context.Contex
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_adminDashboard_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_patterns(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_patterns(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().Patterns(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.K8sPattern)
+	fc.Result = res
+	return ec.marshalNK8sPattern2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐK8sPatternᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_patterns(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_K8sPattern_id(ctx, field)
+			case "name":
+				return ec.fieldContext_K8sPattern_name(ctx, field)
+			case "description":
+				return ec.fieldContext_K8sPattern_description(ctx, field)
+			case "checkItems":
+				return ec.fieldContext_K8sPattern_checkItems(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_K8sPattern_createdAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type K8sPattern", field.Name)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_checkItems(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_checkItems(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().CheckItems(rctx, fc.Args["patternId"].(*int32))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.CheckItem)
+	fc.Result = res
+	return ec.marshalNCheckItem2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckItemᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_checkItems(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CheckItem_id(ctx, field)
+			case "patternId":
+				return ec.fieldContext_CheckItem_patternId(ctx, field)
+			case "pattern":
+				return ec.fieldContext_CheckItem_pattern(ctx, field)
+			case "name":
+				return ec.fieldContext_CheckItem_name(ctx, field)
+			case "description":
+				return ec.fieldContext_CheckItem_description(ctx, field)
+			case "createdAt":
+				return ec.fieldContext_CheckItem_createdAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CheckItem", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_checkItems_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_checkResults(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_checkResults(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().CheckResults(rctx, fc.Args["repositoryId"].(*int32))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.CheckResult)
+	fc.Result = res
+	return ec.marshalNCheckResult2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckResultᚄ(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_checkResults(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "id":
+				return ec.fieldContext_CheckResult_id(ctx, field)
+			case "repositoryId":
+				return ec.fieldContext_CheckResult_repositoryId(ctx, field)
+			case "repository":
+				return ec.fieldContext_CheckResult_repository(ctx, field)
+			case "checkItemId":
+				return ec.fieldContext_CheckResult_checkItemId(ctx, field)
+			case "checkItem":
+				return ec.fieldContext_CheckResult_checkItem(ctx, field)
+			case "result":
+				return ec.fieldContext_CheckResult_result(ctx, field)
+			case "memo":
+				return ec.fieldContext_CheckResult_memo(ctx, field)
+			case "checkedAt":
+				return ec.fieldContext_CheckResult_checkedAt(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_CheckResult_updatedAt(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type CheckResult", field.Name)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_checkResults_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -3902,40 +4674,6 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
-func (ec *executionContext) unmarshalInputNewCheckQueryInput(ctx context.Context, obj any) (model.NewCheckQueryInput, error) {
-	var it model.NewCheckQueryInput
-	asMap := map[string]any{}
-	for k, v := range obj.(map[string]any) {
-		asMap[k] = v
-	}
-
-	fieldsInOrder := [...]string{"name", "description"}
-	for _, k := range fieldsInOrder {
-		v, ok := asMap[k]
-		if !ok {
-			continue
-		}
-		switch k {
-		case "name":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
-			data, err := ec.unmarshalNString2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Name = data
-		case "description":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Description = data
-		}
-	}
-
-	return it, nil
-}
-
 func (ec *executionContext) unmarshalInputNewCheckResultInput(ctx context.Context, obj any) (model.NewCheckResultInput, error) {
 	var it model.NewCheckResultInput
 	asMap := map[string]any{}
@@ -3943,30 +4681,30 @@ func (ec *executionContext) unmarshalInputNewCheckResultInput(ctx context.Contex
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"repositoryID", "checkQueryID", "result", "memo", "isWebApp"}
+	fieldsInOrder := [...]string{"repositoryId", "checkItemId", "result", "memo"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "repositoryID":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("repositoryID"))
+		case "repositoryId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("repositoryId"))
 			data, err := ec.unmarshalNInt2int32(ctx, v)
 			if err != nil {
 				return it, err
 			}
 			it.RepositoryID = data
-		case "checkQueryID":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("checkQueryID"))
+		case "checkItemId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("checkItemId"))
 			data, err := ec.unmarshalNInt2int32(ctx, v)
 			if err != nil {
 				return it, err
 			}
-			it.CheckQueryID = data
+			it.CheckItemID = data
 		case "result":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("result"))
-			data, err := ec.unmarshalNString2string(ctx, v)
+			data, err := ec.unmarshalNBoolean2bool(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -3978,13 +4716,6 @@ func (ec *executionContext) unmarshalInputNewCheckResultInput(ctx context.Contex
 				return it, err
 			}
 			it.Memo = data
-		case "isWebApp":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("isWebApp"))
-			data, err := ec.unmarshalNBoolean2bool(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.IsWebApp = data
 		}
 	}
 
@@ -4010,8 +4741,8 @@ func (ec *executionContext) _AdminDashboard(ctx context.Context, sel ast.Selecti
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("AdminDashboard")
-		case "checkQueries":
-			out.Values[i] = ec._AdminDashboard_checkQueries(ctx, field, obj)
+		case "patterns":
+			out.Values[i] = ec._AdminDashboard_patterns(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4020,13 +4751,8 @@ func (ec *executionContext) _AdminDashboard(ctx context.Context, sel ast.Selecti
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "myChecks":
-			out.Values[i] = ec._AdminDashboard_myChecks(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "resultOptions":
-			out.Values[i] = ec._AdminDashboard_resultOptions(ctx, field, obj)
+		case "checkResults":
+			out.Values[i] = ec._AdminDashboard_checkResults(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4053,31 +4779,173 @@ func (ec *executionContext) _AdminDashboard(ctx context.Context, sel ast.Selecti
 	return out
 }
 
-var checkQueryImplementors = []string{"CheckQuery"}
+var checkItemImplementors = []string{"CheckItem"}
 
-func (ec *executionContext) _CheckQuery(ctx context.Context, sel ast.SelectionSet, obj *model.CheckQuery) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, checkQueryImplementors)
+func (ec *executionContext) _CheckItem(ctx context.Context, sel ast.SelectionSet, obj *model.CheckItem) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, checkItemImplementors)
 
 	out := graphql.NewFieldSet(fields)
 	deferred := make(map[string]*graphql.FieldSet)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
-			out.Values[i] = graphql.MarshalString("CheckQuery")
+			out.Values[i] = graphql.MarshalString("CheckItem")
 		case "id":
-			out.Values[i] = ec._CheckQuery_id(ctx, field, obj)
+			out.Values[i] = ec._CheckItem_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "patternId":
+			out.Values[i] = ec._CheckItem_patternId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "pattern":
+			out.Values[i] = ec._CheckItem_pattern(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		case "name":
-			out.Values[i] = ec._CheckQuery_name(ctx, field, obj)
+			out.Values[i] = ec._CheckItem_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		case "description":
-			out.Values[i] = ec._CheckQuery_description(ctx, field, obj)
+			out.Values[i] = ec._CheckItem_description(ctx, field, obj)
 		case "createdAt":
-			out.Values[i] = ec._CheckQuery_createdAt(ctx, field, obj)
+			out.Values[i] = ec._CheckItem_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var checkResultImplementors = []string{"CheckResult"}
+
+func (ec *executionContext) _CheckResult(ctx context.Context, sel ast.SelectionSet, obj *model.CheckResult) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, checkResultImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CheckResult")
+		case "id":
+			out.Values[i] = ec._CheckResult_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "repositoryId":
+			out.Values[i] = ec._CheckResult_repositoryId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "repository":
+			out.Values[i] = ec._CheckResult_repository(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "checkItemId":
+			out.Values[i] = ec._CheckResult_checkItemId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "checkItem":
+			out.Values[i] = ec._CheckResult_checkItem(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "result":
+			out.Values[i] = ec._CheckResult_result(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "memo":
+			out.Values[i] = ec._CheckResult_memo(ctx, field, obj)
+		case "checkedAt":
+			out.Values[i] = ec._CheckResult_checkedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedAt":
+			out.Values[i] = ec._CheckResult_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
+var k8sPatternImplementors = []string{"K8sPattern"}
+
+func (ec *executionContext) _K8sPattern(ctx context.Context, sel ast.SelectionSet, obj *model.K8sPattern) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, k8sPatternImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("K8sPattern")
+		case "id":
+			out.Values[i] = ec._K8sPattern_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._K8sPattern_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "description":
+			out.Values[i] = ec._K8sPattern_description(ctx, field, obj)
+		case "checkItems":
+			out.Values[i] = ec._K8sPattern_checkItems(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._K8sPattern_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -4123,16 +4991,23 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
-		case "createCheckQuery":
+		case "createCheckResult":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_createCheckQuery(ctx, field)
+				return ec._Mutation_createCheckResult(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "createCheckResult":
+		case "updateCheckResult":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_createCheckResult(ctx, field)
+				return ec._Mutation_updateCheckResult(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteCheckResult":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteCheckResult(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -4201,74 +5076,6 @@ func (ec *executionContext) _MutationResult(ctx context.Context, sel ast.Selecti
 	return out
 }
 
-var myCheckImplementors = []string{"MyCheck"}
-
-func (ec *executionContext) _MyCheck(ctx context.Context, sel ast.SelectionSet, obj *model.MyCheck) graphql.Marshaler {
-	fields := graphql.CollectFields(ec.OperationContext, sel, myCheckImplementors)
-
-	out := graphql.NewFieldSet(fields)
-	deferred := make(map[string]*graphql.FieldSet)
-	for i, field := range fields {
-		switch field.Name {
-		case "__typename":
-			out.Values[i] = graphql.MarshalString("MyCheck")
-		case "repositoryID":
-			out.Values[i] = ec._MyCheck_repositoryID(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "repositoryName":
-			out.Values[i] = ec._MyCheck_repositoryName(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "checkQueryID":
-			out.Values[i] = ec._MyCheck_checkQueryID(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "checkQueryName":
-			out.Values[i] = ec._MyCheck_checkQueryName(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "result":
-			out.Values[i] = ec._MyCheck_result(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "memo":
-			out.Values[i] = ec._MyCheck_memo(ctx, field, obj)
-		case "updatedAt":
-			out.Values[i] = ec._MyCheck_updatedAt(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				out.Invalids++
-			}
-		case "isWebApp":
-			out.Values[i] = ec._MyCheck_isWebApp(ctx, field, obj)
-		default:
-			panic("unknown field " + strconv.Quote(field.Name))
-		}
-	}
-	out.Dispatch(ctx)
-	if out.Invalids > 0 {
-		return graphql.Null
-	}
-
-	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
-
-	for label, dfs := range deferred {
-		ec.processDeferredGroup(graphql.DeferredGroup{
-			Label:    label,
-			Path:     graphql.GetPath(ctx),
-			FieldSet: dfs,
-			Context:  ctx,
-		})
-	}
-
-	return out
-}
-
 var queryImplementors = []string{"Query"}
 
 func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) graphql.Marshaler {
@@ -4298,6 +5105,72 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_adminDashboard(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "patterns":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_patterns(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "checkItems":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_checkItems(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "checkResults":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_checkResults(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -4767,7 +5640,7 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) marshalNCheckQuery2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckQueryᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CheckQuery) graphql.Marshaler {
+func (ec *executionContext) marshalNCheckItem2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckItemᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CheckItem) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -4791,7 +5664,7 @@ func (ec *executionContext) marshalNCheckQuery2ᚕᚖgithubᚗcomᚋnaoya0117ᚋ
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNCheckQuery2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckQuery(ctx, sel, v[i])
+			ret[i] = ec.marshalNCheckItem2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckItem(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -4811,14 +5684,68 @@ func (ec *executionContext) marshalNCheckQuery2ᚕᚖgithubᚗcomᚋnaoya0117ᚋ
 	return ret
 }
 
-func (ec *executionContext) marshalNCheckQuery2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckQuery(ctx context.Context, sel ast.SelectionSet, v *model.CheckQuery) graphql.Marshaler {
+func (ec *executionContext) marshalNCheckItem2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckItem(ctx context.Context, sel ast.SelectionSet, v *model.CheckItem) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._CheckQuery(ctx, sel, v)
+	return ec._CheckItem(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNCheckResult2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckResultᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.CheckResult) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	var wg sync.WaitGroup
+	isLen1 := len(v) == 1
+	if !isLen1 {
+		wg.Add(len(v))
+	}
+	for i := range v {
+		i := i
+		fc := &graphql.FieldContext{
+			Index:  &i,
+			Result: &v[i],
+		}
+		ctx := graphql.WithFieldContext(ctx, fc)
+		f := func(i int) {
+			defer func() {
+				if r := recover(); r != nil {
+					ec.Error(ctx, ec.Recover(ctx, r))
+					ret = nil
+				}
+			}()
+			if !isLen1 {
+				defer wg.Done()
+			}
+			ret[i] = ec.marshalNCheckResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckResult(ctx, sel, v[i])
+		}
+		if isLen1 {
+			f(i)
+		} else {
+			go f(i)
+		}
+
+	}
+	wg.Wait()
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNCheckResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckResult(ctx context.Context, sel ast.SelectionSet, v *model.CheckResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._CheckResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNInt2int32(ctx context.Context, v any) (int32, error) {
@@ -4837,21 +5764,7 @@ func (ec *executionContext) marshalNInt2int32(ctx context.Context, sel ast.Selec
 	return res
 }
 
-func (ec *executionContext) marshalNMutationResult2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx context.Context, sel ast.SelectionSet, v model.MutationResult) graphql.Marshaler {
-	return ec._MutationResult(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx context.Context, sel ast.SelectionSet, v *model.MutationResult) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
-		}
-		return graphql.Null
-	}
-	return ec._MutationResult(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNMyCheck2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMyCheckᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.MyCheck) graphql.Marshaler {
+func (ec *executionContext) marshalNK8sPattern2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐK8sPatternᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.K8sPattern) graphql.Marshaler {
 	ret := make(graphql.Array, len(v))
 	var wg sync.WaitGroup
 	isLen1 := len(v) == 1
@@ -4875,7 +5788,7 @@ func (ec *executionContext) marshalNMyCheck2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshu
 			if !isLen1 {
 				defer wg.Done()
 			}
-			ret[i] = ec.marshalNMyCheck2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMyCheck(ctx, sel, v[i])
+			ret[i] = ec.marshalNK8sPattern2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐK8sPattern(ctx, sel, v[i])
 		}
 		if isLen1 {
 			f(i)
@@ -4895,19 +5808,28 @@ func (ec *executionContext) marshalNMyCheck2ᚕᚖgithubᚗcomᚋnaoya0117ᚋshu
 	return ret
 }
 
-func (ec *executionContext) marshalNMyCheck2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMyCheck(ctx context.Context, sel ast.SelectionSet, v *model.MyCheck) graphql.Marshaler {
+func (ec *executionContext) marshalNK8sPattern2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐK8sPattern(ctx context.Context, sel ast.SelectionSet, v *model.K8sPattern) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
 		}
 		return graphql.Null
 	}
-	return ec._MyCheck(ctx, sel, v)
+	return ec._K8sPattern(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalNNewCheckQueryInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐNewCheckQueryInput(ctx context.Context, v any) (model.NewCheckQueryInput, error) {
-	res, err := ec.unmarshalInputNewCheckQueryInput(ctx, v)
-	return res, graphql.ErrorOnPath(ctx, err)
+func (ec *executionContext) marshalNMutationResult2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx context.Context, sel ast.SelectionSet, v model.MutationResult) graphql.Marshaler {
+	return ec._MutationResult(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNMutationResult2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐMutationResult(ctx context.Context, sel ast.SelectionSet, v *model.MutationResult) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._MutationResult(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNNewCheckResultInput2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐNewCheckResultInput(ctx context.Context, v any) (model.NewCheckResultInput, error) {
@@ -4983,36 +5905,6 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 		}
 	}
 	return res
-}
-
-func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
-	var vSlice []any
-	vSlice = graphql.CoerceList(v)
-	var err error
-	res := make([]string, len(vSlice))
-	for i := range vSlice {
-		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
-		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
-	ret := make(graphql.Array, len(v))
-	for i := range v {
-		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
-	}
-
-	for _, e := range ret {
-		if e == graphql.Null {
-			return graphql.Null
-		}
-	}
-
-	return ret
 }
 
 func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v any) (time.Time, error) {

@@ -1,12 +1,25 @@
 scalar Time
 
-type CheckQuery {
+# Kubernetes pattern (e.g., Health Probe, Managed Lifecycle)
+type K8sPattern {
   id: Int!
+  name: String!
+  description: String
+  checkItems: [CheckItem!]!
+  createdAt: Time!
+}
+
+# Specific check item for a pattern
+type CheckItem {
+  id: Int!
+  patternId: Int!
+  pattern: K8sPattern!
   name: String!
   description: String
   createdAt: Time!
 }
 
+# Repository information
 type Repository {
   id: Int!
   nameWithOwner: String!
@@ -16,47 +29,49 @@ type Repository {
   createdAt: Time!
 }
 
-type MyCheck {
-  repositoryID: Int!
-  repositoryName: String!
-  checkQueryID: Int!
-  checkQueryName: String!
-  result: String!
+# Check result for a specific repository and check item
+type CheckResult {
+  id: Int!
+  repositoryId: Int!
+  repository: Repository!
+  checkItemId: Int!
+  checkItem: CheckItem!
+  result: Boolean!
   memo: String
+  checkedAt: Time!
   updatedAt: Time!
-  isWebApp: Boolean
 }
 
+# Admin dashboard data
 type AdminDashboard {
-  checkQueries: [CheckQuery!]!
+  patterns: [K8sPattern!]!
   repositories: [Repository!]!
-  myChecks: [MyCheck!]!
-  resultOptions: [String!]!
+  checkResults: [CheckResult!]!
 }
 
+# Mutation result
 type MutationResult {
   success: Boolean!
   message: String
 }
 
-input NewCheckQueryInput {
-  name: String!
-  description: String
-}
-
+# Input for creating a check result
 input NewCheckResultInput {
-  repositoryID: Int!
-  checkQueryID: Int!
-  result: String!
+  repositoryId: Int!
+  checkItemId: Int!
+  result: Boolean!
   memo: String
-  isWebApp: Boolean!
 }
 
 type Query {
   adminDashboard(limit: Int = 50): AdminDashboard!
+  patterns: [K8sPattern!]!
+  checkItems(patternId: Int): [CheckItem!]!
+  checkResults(repositoryId: Int): [CheckResult!]!
 }
 
 type Mutation {
-  createCheckQuery(input: NewCheckQueryInput!): MutationResult!
   createCheckResult(input: NewCheckResultInput!): MutationResult!
+  updateCheckResult(id: Int!, input: NewCheckResultInput!): MutationResult!
+  deleteCheckResult(id: Int!): MutationResult!
 }
