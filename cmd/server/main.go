@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/naoya0117/shuron2025/api/graph"
 	"github.com/naoya0117/shuron2025/api/internal/database"
@@ -56,9 +57,14 @@ func main() {
 
 	http.HandleFunc("/admin/check-queries", adminSrv.HandleCheckQueries)
 	http.HandleFunc("/admin/check-results", adminSrv.HandleCheckResults)
-	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
+
+	if env := os.Getenv("ENV"); strings.ToLower(env) != "production" {
+		http.Handle("/", playground.Handler("GraphQL playground", "/query"))
+		log.Printf("GraphQL playground available at http://localhost:%s/", port)
+	}
+
 	http.Handle("/query", srv)
 
-	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
+	log.Printf("GraphQL endpoint available at http://localhost:%s/query", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
