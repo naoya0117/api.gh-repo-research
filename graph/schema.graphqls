@@ -98,6 +98,7 @@ type Query {
   checkItems(patternId: Int): [CheckItem!]!
   checkResults(repositoryId: Int): [CheckResult!]!
   repositories(limit: Int = 100, offset: Int = 0): [Repository!]!
+  unevaluatedRepositoriesWithDockerfile(limit: Int = 50, offset: Int = 0): [Repository!]!
   repository(id: Int!): Repository
 }
 

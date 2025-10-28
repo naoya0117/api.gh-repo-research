@@ -20,6 +20,13 @@ import (
 
 const defaultPort = "8080"
 
+// main is the entry point of the program.
+//
+// It sets up a GraphQL endpoint and an admin interface for managing check queries.
+//
+// The GraphQL endpoint is available at http://localhost:8080/query and the admin interface is available at http://localhost:8080/admin/check-queries and http://localhost:8080/admin/check-results.
+//
+// If the ENV environment variable is not set to "production", a GraphQL playground is available at http://localhost:8080/.
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -31,7 +38,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close database connection: %v", err)
+		}
+	}()
 
 	if err := db.EnsureCoreTables(); err != nil {
 		log.Fatalf("Failed to create tables: %v", err)

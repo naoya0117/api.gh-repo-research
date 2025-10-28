@@ -13,7 +13,7 @@ import (
 )
 
 // Pattern is the resolver for the pattern field on CheckItem.
-func (r *checkItemResolver) Pattern(ctx context.Context, obj *model.CheckItem) (*model.K8sPattern, error) {
+func (r *checkItemResolver) Pattern(_ context.Context, obj *model.CheckItem) (*model.K8sPattern, error) {
 	patterns, err := r.DB.GetK8sPatterns()
 	if err != nil {
 		return nil, fmt.Errorf("パターンの取得に失敗しました: %w", err)
@@ -37,7 +37,7 @@ func (r *checkItemResolver) Pattern(ctx context.Context, obj *model.CheckItem) (
 }
 
 // Repository is the resolver for the repository field on CheckResult.
-func (r *checkResultResolver) Repository(ctx context.Context, obj *model.CheckResult) (*model.Repository, error) {
+func (r *checkResultResolver) Repository(_ context.Context, obj *model.CheckResult) (*model.Repository, error) {
 	repo, err := r.DB.GetRepository(int(obj.RepositoryID))
 	if err != nil {
 		return nil, fmt.Errorf("リポジトリの取得に失敗しました: %w", err)
@@ -65,7 +65,7 @@ func (r *checkResultResolver) Repository(ctx context.Context, obj *model.CheckRe
 }
 
 // CheckItem is the resolver for the checkItem field on CheckResult.
-func (r *checkResultResolver) CheckItem(ctx context.Context, obj *model.CheckResult) (*model.CheckItem, error) {
+func (r *checkResultResolver) CheckItem(_ context.Context, obj *model.CheckResult) (*model.CheckItem, error) {
 	items, err := r.DB.GetCheckItems(nil)
 	if err != nil {
 		return nil, fmt.Errorf("チェック項目の取得に失敗しました: %w", err)
@@ -90,7 +90,7 @@ func (r *checkResultResolver) CheckItem(ctx context.Context, obj *model.CheckRes
 }
 
 // CheckItems is the resolver for the checkItems field on K8sPattern.
-func (r *k8sPatternResolver) CheckItems(ctx context.Context, obj *model.K8sPattern) ([]*model.CheckItem, error) {
+func (r *k8sPatternResolver) CheckItems(_ context.Context, obj *model.K8sPattern) ([]*model.CheckItem, error) {
 	patternID := int(obj.ID)
 	items, err := r.DB.GetCheckItems(&patternID)
 	if err != nil {
@@ -100,7 +100,7 @@ func (r *k8sPatternResolver) CheckItems(ctx context.Context, obj *model.K8sPatte
 }
 
 // CreateCheckResult is the resolver for the createCheckResult field.
-func (r *mutationResolver) CreateCheckResult(ctx context.Context, input model.NewCheckResultInput) (*model.MutationResult, error) {
+func (r *mutationResolver) CreateCheckResult(_ context.Context, input model.NewCheckResultInput) (*model.MutationResult, error) {
 	repositoryID := int(input.RepositoryID)
 	checkItemID := int(input.CheckItemID)
 
@@ -131,7 +131,7 @@ func (r *mutationResolver) CreateCheckResult(ctx context.Context, input model.Ne
 }
 
 // UpdateCheckResult is the resolver for the updateCheckResult field.
-func (r *mutationResolver) UpdateCheckResult(ctx context.Context, id int32, input model.NewCheckResultInput) (*model.MutationResult, error) {
+func (r *mutationResolver) UpdateCheckResult(_ context.Context, id int32, input model.NewCheckResultInput) (*model.MutationResult, error) {
 	var memoPtr *string
 	if input.Memo != nil {
 		memo := strings.TrimSpace(*input.Memo)
@@ -153,7 +153,7 @@ func (r *mutationResolver) UpdateCheckResult(ctx context.Context, id int32, inpu
 }
 
 // DeleteCheckResult is the resolver for the deleteCheckResult field.
-func (r *mutationResolver) DeleteCheckResult(ctx context.Context, id int32) (*model.MutationResult, error) {
+func (r *mutationResolver) DeleteCheckResult(_ context.Context, id int32) (*model.MutationResult, error) {
 	if err := r.DB.DeleteCheckResult(int(id)); err != nil {
 		return nil, fmt.Errorf("チェック結果の削除に失敗しました: %w", err)
 	}
@@ -166,7 +166,7 @@ func (r *mutationResolver) DeleteCheckResult(ctx context.Context, id int32) (*mo
 }
 
 // SaveRepositoryEvaluation is the resolver for the saveRepositoryEvaluation field.
-func (r *mutationResolver) SaveRepositoryEvaluation(ctx context.Context, input model.RepositoryEvaluationInput) (*model.MutationResult, error) {
+func (r *mutationResolver) SaveRepositoryEvaluation(_ context.Context, input model.RepositoryEvaluationInput) (*model.MutationResult, error) {
 	repositoryID := int(input.RepositoryID)
 
 	// 1. Save WebApp check
@@ -203,7 +203,7 @@ func (r *mutationResolver) SaveRepositoryEvaluation(ctx context.Context, input m
 }
 
 // CreatePattern is the resolver for the createPattern field.
-func (r *mutationResolver) CreatePattern(ctx context.Context, input model.K8sPatternInput) (*model.MutationResult, error) {
+func (r *mutationResolver) CreatePattern(_ context.Context, input model.K8sPatternInput) (*model.MutationResult, error) {
 	id, err := r.DB.CreateK8sPattern(input.Name, input.Description)
 	if err != nil {
 		return &model.MutationResult{
@@ -218,7 +218,7 @@ func (r *mutationResolver) CreatePattern(ctx context.Context, input model.K8sPat
 }
 
 // UpdatePattern is the resolver for the updatePattern field.
-func (r *mutationResolver) UpdatePattern(ctx context.Context, id int32, input model.K8sPatternInput) (*model.MutationResult, error) {
+func (r *mutationResolver) UpdatePattern(_ context.Context, id int32, input model.K8sPatternInput) (*model.MutationResult, error) {
 	if err := r.DB.UpdateK8sPattern(int(id), input.Name, input.Description); err != nil {
 		return &model.MutationResult{
 			Success: false,
@@ -232,7 +232,7 @@ func (r *mutationResolver) UpdatePattern(ctx context.Context, id int32, input mo
 }
 
 // DeletePattern is the resolver for the deletePattern field.
-func (r *mutationResolver) DeletePattern(ctx context.Context, id int32) (*model.MutationResult, error) {
+func (r *mutationResolver) DeletePattern(_ context.Context, id int32) (*model.MutationResult, error) {
 	if err := r.DB.DeleteK8sPattern(int(id)); err != nil {
 		return &model.MutationResult{
 			Success: false,
@@ -246,7 +246,7 @@ func (r *mutationResolver) DeletePattern(ctx context.Context, id int32) (*model.
 }
 
 // CreateCheckItem is the resolver for the createCheckItem field.
-func (r *mutationResolver) CreateCheckItem(ctx context.Context, input model.CheckItemInput) (*model.MutationResult, error) {
+func (r *mutationResolver) CreateCheckItem(_ context.Context, input model.CheckItemInput) (*model.MutationResult, error) {
 	id, err := r.DB.CreateCheckItem(int(input.PatternID), input.Name, input.Description)
 	if err != nil {
 		return &model.MutationResult{
@@ -261,7 +261,7 @@ func (r *mutationResolver) CreateCheckItem(ctx context.Context, input model.Chec
 }
 
 // UpdateCheckItem is the resolver for the updateCheckItem field.
-func (r *mutationResolver) UpdateCheckItem(ctx context.Context, id int32, input model.CheckItemInput) (*model.MutationResult, error) {
+func (r *mutationResolver) UpdateCheckItem(_ context.Context, id int32, input model.CheckItemInput) (*model.MutationResult, error) {
 	if err := r.DB.UpdateCheckItem(int(id), int(input.PatternID), input.Name, input.Description); err != nil {
 		return &model.MutationResult{
 			Success: false,
@@ -275,7 +275,7 @@ func (r *mutationResolver) UpdateCheckItem(ctx context.Context, id int32, input 
 }
 
 // DeleteCheckItem is the resolver for the deleteCheckItem field.
-func (r *mutationResolver) DeleteCheckItem(ctx context.Context, id int32) (*model.MutationResult, error) {
+func (r *mutationResolver) DeleteCheckItem(_ context.Context, id int32) (*model.MutationResult, error) {
 	if err := r.DB.DeleteCheckItem(int(id)); err != nil {
 		return &model.MutationResult{
 			Success: false,
@@ -289,7 +289,7 @@ func (r *mutationResolver) DeleteCheckItem(ctx context.Context, id int32) (*mode
 }
 
 // AdminDashboard is the resolver for the adminDashboard field.
-func (r *queryResolver) AdminDashboard(ctx context.Context, limit *int32) (*model.AdminDashboard, error) {
+func (r *queryResolver) AdminDashboard(_ context.Context, limit *int32) (*model.AdminDashboard, error) {
 	l := 50
 	if limit != nil && *limit > 0 {
 		l = int(*limit)
@@ -318,7 +318,7 @@ func (r *queryResolver) AdminDashboard(ctx context.Context, limit *int32) (*mode
 }
 
 // Patterns is the resolver for the patterns field.
-func (r *queryResolver) Patterns(ctx context.Context) ([]*model.K8sPattern, error) {
+func (r *queryResolver) Patterns(_ context.Context) ([]*model.K8sPattern, error) {
 	patterns, err := r.DB.GetK8sPatterns()
 	if err != nil {
 		return nil, fmt.Errorf("パターン一覧の取得に失敗しました: %w", err)
@@ -327,7 +327,7 @@ func (r *queryResolver) Patterns(ctx context.Context) ([]*model.K8sPattern, erro
 }
 
 // CheckItems is the resolver for the checkItems field.
-func (r *queryResolver) CheckItems(ctx context.Context, patternID *int32) ([]*model.CheckItem, error) {
+func (r *queryResolver) CheckItems(_ context.Context, patternID *int32) ([]*model.CheckItem, error) {
 	var patternIDPtr *int
 	if patternID != nil {
 		id := int(*patternID)
@@ -342,7 +342,7 @@ func (r *queryResolver) CheckItems(ctx context.Context, patternID *int32) ([]*mo
 }
 
 // CheckResults is the resolver for the checkResults field.
-func (r *queryResolver) CheckResults(ctx context.Context, repositoryID *int32) ([]*model.CheckResult, error) {
+func (r *queryResolver) CheckResults(_ context.Context, repositoryID *int32) ([]*model.CheckResult, error) {
 	var repositoryIDPtr *int
 	if repositoryID != nil {
 		id := int(*repositoryID)
@@ -357,7 +357,7 @@ func (r *queryResolver) CheckResults(ctx context.Context, repositoryID *int32) (
 }
 
 // Repositories is the resolver for the repositories field.
-func (r *queryResolver) Repositories(ctx context.Context, limit *int32, offset *int32) ([]*model.Repository, error) {
+func (r *queryResolver) Repositories(_ context.Context, limit *int32, offset *int32) ([]*model.Repository, error) {
 	l := 100
 	if limit != nil && *limit > 0 {
 		l = int(*limit)
@@ -374,8 +374,26 @@ func (r *queryResolver) Repositories(ctx context.Context, limit *int32, offset *
 	return convertRepositories(repos), nil
 }
 
+// UnevaluatedRepositoriesWithDockerfile is the resolver for the unevaluatedRepositoriesWithDockerfile field.
+func (r *queryResolver) UnevaluatedRepositoriesWithDockerfile(_ context.Context, limit *int32, offset *int32) ([]*model.Repository, error) {
+	l := 50
+	if limit != nil && *limit > 0 {
+		l = int(*limit)
+	}
+	o := 0
+	if offset != nil && *offset >= 0 {
+		o = int(*offset)
+	}
+
+	repos, err := r.DB.GetUnevaluatedRepositoriesWithDockerfile(l, o)
+	if err != nil {
+		return nil, fmt.Errorf("未評価リポジトリ一覧の取得に失敗しました: %w", err)
+	}
+	return convertRepositories(repos), nil
+}
+
 // Repository is the resolver for the repository field.
-func (r *queryResolver) Repository(ctx context.Context, id int32) (*model.Repository, error) {
+func (r *queryResolver) Repository(_ context.Context, id int32) (*model.Repository, error) {
 	repo, err := r.DB.GetRepository(int(id))
 	if err != nil {
 		return nil, fmt.Errorf("リポジトリの取得に失敗しました: %w", err)
