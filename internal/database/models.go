@@ -278,6 +278,21 @@ func (db *DB) SearchEvaluatedRepositories(searchQuery string, limit, offset int)
 	return repositories, nil
 }
 
+// GetEvaluatedRepositoriesStats returns statistics for evaluated repositories
+func (db *DB) GetEvaluatedRepositoriesStats() (totalCount, webAppCount, nonWebAppCount int, err error) {
+	query := `
+		SELECT
+			COUNT(*) as total,
+			COUNT(*) FILTER (WHERE w.is_web_app = true) as web_apps,
+			COUNT(*) FILTER (WHERE w.is_web_app = false) as non_web_apps
+		FROM repositories r
+		INNER JOIN repository_webapp_checks w ON r.id = w.id
+		WHERE r.has_dockerfile = true AND w.is_web_app IS NOT NULL
+	`
+	err = db.QueryRow(query).Scan(&totalCount, &webAppCount, &nonWebAppCount)
+	return
+}
+
 func (db *DB) SaveSearchState(state SearchState) error {
 	query := `
 		INSERT INTO search_states (session_id, query, current_language, current_cursor, total_fetched, is_completed)

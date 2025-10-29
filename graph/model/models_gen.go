@@ -45,6 +45,12 @@ type CheckResultInput struct {
 	Memo        *string `json:"memo,omitempty"`
 }
 
+type EvaluatedRepositoriesStats struct {
+	TotalCount     int32 `json:"totalCount"`
+	WebAppCount    int32 `json:"webAppCount"`
+	NonWebAppCount int32 `json:"nonWebAppCount"`
+}
+
 type K8sPattern struct {
 	ID          int32        `json:"id"`
 	Name        string       `json:"name"`

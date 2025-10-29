@@ -92,6 +92,12 @@ input CheckItemInput {
   description: String
 }
 
+type EvaluatedRepositoriesStats {
+  totalCount: Int!
+  webAppCount: Int!
+  nonWebAppCount: Int!
+}
+
 type Query {
   adminDashboard(limit: Int = 50): AdminDashboard!
   patterns: [K8sPattern!]!
@@ -100,6 +106,7 @@ type Query {
   repositories(limit: Int = 100, offset: Int = 0): [Repository!]!
   unevaluatedRepositoriesWithDockerfile(limit: Int = 50, offset: Int = 0): [Repository!]!
   searchEvaluatedRepositories(query: String!, limit: Int = 50, offset: Int = 0): [Repository!]!
+  evaluatedRepositoriesStats: EvaluatedRepositoriesStats!
   repository(id: Int!): Repository
 }
 

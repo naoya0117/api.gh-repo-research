@@ -166,7 +166,7 @@ func (r *mutationResolver) DeleteCheckResult(ctx context.Context, id int32) (*mo
 }
 
 // SaveRepositoryEvaluation is the resolver for the saveRepositoryEvaluation field.
-func (r *mutationResolver) SaveRepositoryEvaluation(_ context.Context, input model.RepositoryEvaluationInput) (*model.MutationResult, error) {
+func (r *mutationResolver) SaveRepositoryEvaluation(ctx context.Context, input model.RepositoryEvaluationInput) (*model.MutationResult, error) {
 	repositoryID := int(input.RepositoryID)
 
 	// 1. Save WebApp check
@@ -414,7 +414,7 @@ func (r *queryResolver) UnevaluatedRepositoriesWithDockerfile(ctx context.Contex
 }
 
 // SearchEvaluatedRepositories is the resolver for the searchEvaluatedRepositories field.
-func (r *queryResolver) SearchEvaluatedRepositories(_ context.Context, query string, limit *int32, offset *int32) ([]*model.Repository, error) {
+func (r *queryResolver) SearchEvaluatedRepositories(ctx context.Context, query string, limit *int32, offset *int32) ([]*model.Repository, error) {
 	l := 50
 	if limit != nil && *limit > 0 {
 		l = int(*limit)
@@ -429,6 +429,20 @@ func (r *queryResolver) SearchEvaluatedRepositories(_ context.Context, query str
 		return nil, fmt.Errorf("評価済みリポジトリの検索に失敗しました: %w", err)
 	}
 	return convertRepositories(repos), nil
+}
+
+// EvaluatedRepositoriesStats is the resolver for the evaluatedRepositoriesStats field.
+func (r *queryResolver) EvaluatedRepositoriesStats(ctx context.Context) (*model.EvaluatedRepositoriesStats, error) {
+	totalCount, webAppCount, nonWebAppCount, err := r.DB.GetEvaluatedRepositoriesStats()
+	if err != nil {
+		return nil, fmt.Errorf("評価済みリポジトリ統計の取得に失敗しました: %w", err)
+	}
+
+	return &model.EvaluatedRepositoriesStats{
+		TotalCount:     int32(totalCount),
+		WebAppCount:    int32(webAppCount),
+		NonWebAppCount: int32(nonWebAppCount),
+	}, nil
 }
 
 // Repository is the resolver for the repository field.

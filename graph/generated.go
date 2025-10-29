@@ -78,6 +78,12 @@ type ComplexityRoot struct {
 		UpdatedAt    func(childComplexity int) int
 	}
 
+	EvaluatedRepositoriesStats struct {
+		NonWebAppCount func(childComplexity int) int
+		TotalCount     func(childComplexity int) int
+		WebAppCount    func(childComplexity int) int
+	}
+
 	K8sPattern struct {
 		CheckItems  func(childComplexity int) int
 		CreatedAt   func(childComplexity int) int
@@ -108,6 +114,7 @@ type ComplexityRoot struct {
 		AdminDashboard                        func(childComplexity int, limit *int32) int
 		CheckItems                            func(childComplexity int, patternID *int32) int
 		CheckResults                          func(childComplexity int, repositoryID *int32) int
+		EvaluatedRepositoriesStats            func(childComplexity int) int
 		Patterns                              func(childComplexity int) int
 		Repositories                          func(childComplexity int, limit *int32, offset *int32) int
 		Repository                            func(childComplexity int, id int32) int
@@ -158,6 +165,7 @@ type QueryResolver interface {
 	Repositories(ctx context.Context, limit *int32, offset *int32) ([]*model.Repository, error)
 	UnevaluatedRepositoriesWithDockerfile(ctx context.Context, limit *int32, offset *int32) ([]*model.Repository, error)
 	SearchEvaluatedRepositories(ctx context.Context, query string, limit *int32, offset *int32) ([]*model.Repository, error)
+	EvaluatedRepositoriesStats(ctx context.Context) (*model.EvaluatedRepositoriesStats, error)
 	Repository(ctx context.Context, id int32) (*model.Repository, error)
 }
 
@@ -305,6 +313,27 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.CheckResult.UpdatedAt(childComplexity), true
+
+	case "EvaluatedRepositoriesStats.nonWebAppCount":
+		if e.complexity.EvaluatedRepositoriesStats.NonWebAppCount == nil {
+			break
+		}
+
+		return e.complexity.EvaluatedRepositoriesStats.NonWebAppCount(childComplexity), true
+
+	case "EvaluatedRepositoriesStats.totalCount":
+		if e.complexity.EvaluatedRepositoriesStats.TotalCount == nil {
+			break
+		}
+
+		return e.complexity.EvaluatedRepositoriesStats.TotalCount(childComplexity), true
+
+	case "EvaluatedRepositoriesStats.webAppCount":
+		if e.complexity.EvaluatedRepositoriesStats.WebAppCount == nil {
+			break
+		}
+
+		return e.complexity.EvaluatedRepositoriesStats.WebAppCount(childComplexity), true
 
 	case "K8sPattern.checkItems":
 		if e.complexity.K8sPattern.CheckItems == nil {
@@ -510,6 +539,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.complexity.Query.CheckResults(childComplexity, args["repositoryId"].(*int32)), true
+
+	case "Query.evaluatedRepositoriesStats":
+		if e.complexity.Query.EvaluatedRepositoriesStats == nil {
+			break
+		}
+
+		return e.complexity.Query.EvaluatedRepositoriesStats(childComplexity), true
 
 	case "Query.patterns":
 		if e.complexity.Query.Patterns == nil {
@@ -1911,6 +1947,138 @@ func (ec *executionContext) fieldContext_CheckResult_updatedAt(_ context.Context
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return nil, errors.New("field of type Time does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EvaluatedRepositoriesStats_totalCount(ctx context.Context, field graphql.CollectedField, obj *model.EvaluatedRepositoriesStats) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_EvaluatedRepositoriesStats_totalCount(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.TotalCount, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_EvaluatedRepositoriesStats_totalCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EvaluatedRepositoriesStats",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EvaluatedRepositoriesStats_webAppCount(ctx context.Context, field graphql.CollectedField, obj *model.EvaluatedRepositoriesStats) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_EvaluatedRepositoriesStats_webAppCount(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.WebAppCount, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_EvaluatedRepositoriesStats_webAppCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EvaluatedRepositoriesStats",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EvaluatedRepositoriesStats_nonWebAppCount(ctx context.Context, field graphql.CollectedField, obj *model.EvaluatedRepositoriesStats) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_EvaluatedRepositoriesStats_nonWebAppCount(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.NonWebAppCount, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int32)
+	fc.Result = res
+	return ec.marshalNInt2int32(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_EvaluatedRepositoriesStats_nonWebAppCount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EvaluatedRepositoriesStats",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Int does not have child fields")
 		},
 	}
 	return fc, nil
@@ -3320,6 +3488,58 @@ func (ec *executionContext) fieldContext_Query_searchEvaluatedRepositories(ctx c
 	if fc.Args, err = ec.field_Query_searchEvaluatedRepositories_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_evaluatedRepositoriesStats(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Query_evaluatedRepositoriesStats(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (any, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().EvaluatedRepositoriesStats(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.EvaluatedRepositoriesStats)
+	fc.Result = res
+	return ec.marshalNEvaluatedRepositoriesStats2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐEvaluatedRepositoriesStats(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Query_evaluatedRepositoriesStats(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			switch field.Name {
+			case "totalCount":
+				return ec.fieldContext_EvaluatedRepositoriesStats_totalCount(ctx, field)
+			case "webAppCount":
+				return ec.fieldContext_EvaluatedRepositoriesStats_webAppCount(ctx, field)
+			case "nonWebAppCount":
+				return ec.fieldContext_EvaluatedRepositoriesStats_nonWebAppCount(ctx, field)
+			}
+			return nil, fmt.Errorf("no field named %q was found under type EvaluatedRepositoriesStats", field.Name)
+		},
 	}
 	return fc, nil
 }
@@ -6311,6 +6531,55 @@ func (ec *executionContext) _CheckResult(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
+var evaluatedRepositoriesStatsImplementors = []string{"EvaluatedRepositoriesStats"}
+
+func (ec *executionContext) _EvaluatedRepositoriesStats(ctx context.Context, sel ast.SelectionSet, obj *model.EvaluatedRepositoriesStats) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, evaluatedRepositoriesStatsImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferred := make(map[string]*graphql.FieldSet)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EvaluatedRepositoriesStats")
+		case "totalCount":
+			out.Values[i] = ec._EvaluatedRepositoriesStats_totalCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "webAppCount":
+			out.Values[i] = ec._EvaluatedRepositoriesStats_webAppCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "nonWebAppCount":
+			out.Values[i] = ec._EvaluatedRepositoriesStats_nonWebAppCount(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.deferred, int32(len(deferred)))
+
+	for label, dfs := range deferred {
+		ec.processDeferredGroup(graphql.DeferredGroup{
+			Label:    label,
+			Path:     graphql.GetPath(ctx),
+			FieldSet: dfs,
+			Context:  ctx,
+		})
+	}
+
+	return out
+}
+
 var k8sPatternImplementors = []string{"K8sPattern"}
 
 func (ec *executionContext) _K8sPattern(ctx context.Context, sel ast.SelectionSet, obj *model.K8sPattern) graphql.Marshaler {
@@ -6712,6 +6981,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_searchEvaluatedRepositories(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "evaluatedRepositoriesStats":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_evaluatedRepositoriesStats(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -7324,6 +7615,20 @@ func (ec *executionContext) marshalNCheckResult2ᚖgithubᚗcomᚋnaoya0117ᚋsh
 func (ec *executionContext) unmarshalNCheckResultInput2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐCheckResultInput(ctx context.Context, v any) (*model.CheckResultInput, error) {
 	res, err := ec.unmarshalInputCheckResultInput(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEvaluatedRepositoriesStats2githubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐEvaluatedRepositoriesStats(ctx context.Context, sel ast.SelectionSet, v model.EvaluatedRepositoriesStats) graphql.Marshaler {
+	return ec._EvaluatedRepositoriesStats(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNEvaluatedRepositoriesStats2ᚖgithubᚗcomᚋnaoya0117ᚋshuron2025ᚋapiᚋgraphᚋmodelᚐEvaluatedRepositoriesStats(ctx context.Context, sel ast.SelectionSet, v *model.EvaluatedRepositoriesStats) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			ec.Errorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._EvaluatedRepositoriesStats(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNInt2int32(ctx context.Context, v any) (int32, error) {
