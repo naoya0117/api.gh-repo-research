@@ -431,6 +431,24 @@ func (r *queryResolver) SearchEvaluatedRepositories(ctx context.Context, query s
 	return convertRepositories(repos), nil
 }
 
+// RecentlyEvaluatedRepositories is the resolver for the recentlyEvaluatedRepositories field.
+func (r *queryResolver) RecentlyEvaluatedRepositories(ctx context.Context, limit *int32, offset *int32) ([]*model.Repository, error) {
+	l := 10
+	if limit != nil && *limit > 0 {
+		l = int(*limit)
+	}
+	o := 0
+	if offset != nil && *offset >= 0 {
+		o = int(*offset)
+	}
+
+	repos, err := r.DB.GetRecentlyEvaluatedRepositories(l, o)
+	if err != nil {
+		return nil, fmt.Errorf("最近評価されたリポジトリの取得に失敗しました: %w", err)
+	}
+	return convertRepositories(repos), nil
+}
+
 // EvaluatedRepositoriesStats is the resolver for the evaluatedRepositoriesStats field.
 func (r *queryResolver) EvaluatedRepositoriesStats(ctx context.Context) (*model.EvaluatedRepositoriesStats, error) {
 	totalCount, webAppCount, nonWebAppCount, err := r.DB.GetEvaluatedRepositoriesStats()

@@ -293,6 +293,72 @@ func (db *DB) GetEvaluatedRepositoriesStats() (totalCount, webAppCount, nonWebAp
 	return
 }
 
+// GetRecentlyEvaluatedRepositories returns recently evaluated repositories ordered by evaluation date
+func (db *DB) GetRecentlyEvaluatedRepositories(limit, offset int) ([]Repository, error) {
+	query := `
+		SELECT
+			r.id, r.url, r.name_with_owner, r.stargazer_count, r.primary_language,
+			r.has_dockerfile, r.created_at, r.updated_at,
+			w.is_web_app, w.updated_at as web_app_checked_at
+		FROM repositories r
+		INNER JOIN repository_webapp_checks w ON r.id = w.id
+		WHERE r.has_dockerfile = true AND w.is_web_app IS NOT NULL
+		ORDER BY w.updated_at DESC
+		LIMIT $1 OFFSET $2
+	`
+	rows, err := db.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			// Log the error or handle it appropriately
+			// For now, we'll ignore it as it's typically not critical
+		}
+	}()
+
+	var repositories []Repository
+	for rows.Next() {
+		var repo Repository
+		var primaryLanguage sql.NullString
+		var isWebApp sql.NullBool
+		var webAppCheckedAt sql.NullTime
+
+		err := rows.Scan(
+			&repo.ID,
+			&repo.URL,
+			&repo.NameWithOwner,
+			&repo.StargazerCount,
+			&primaryLanguage,
+			&repo.HasDockerfile,
+			&repo.CreatedAt,
+			&repo.UpdatedAt,
+			&isWebApp,
+			&webAppCheckedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if primaryLanguage.Valid {
+			repo.PrimaryLanguage = &primaryLanguage.String
+		}
+		if isWebApp.Valid {
+			repo.IsWebApp = &isWebApp.Bool
+		}
+		if webAppCheckedAt.Valid {
+			repo.WebAppCheckedAt = &webAppCheckedAt.Time
+		}
+
+		repositories = append(repositories, repo)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return repositories, nil
+}
+
 func (db *DB) SaveSearchState(state SearchState) error {
 	query := `
 		INSERT INTO search_states (session_id, query, current_language, current_cursor, total_fetched, is_completed)
