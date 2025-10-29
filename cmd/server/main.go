@@ -8,6 +8,7 @@ import (
 
 	"github.com/naoya0117/shuron2025/api/graph"
 	"github.com/naoya0117/shuron2025/api/internal/database"
+	"github.com/naoya0117/shuron2025/api/internal/middleware"
 	adminserver "github.com/naoya0117/shuron2025/api/internal/server"
 
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -74,7 +75,8 @@ func main() {
 		log.Printf("GraphQL playground available at http://localhost:%s/", port)
 	}
 
-	http.Handle("/query", srv)
+	// Apply API key authentication middleware to GraphQL endpoint
+	http.Handle("/query", middleware.APIKeyAuth(srv))
 
 	log.Printf("GraphQL endpoint available at http://localhost:%s/query", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
