@@ -166,7 +166,7 @@ func (r *mutationResolver) DeleteCheckResult(ctx context.Context, id int32) (*mo
 }
 
 // SaveRepositoryEvaluation is the resolver for the saveRepositoryEvaluation field.
-func (r *mutationResolver) SaveRepositoryEvaluation(ctx context.Context, input model.RepositoryEvaluationInput) (*model.MutationResult, error) {
+func (r *mutationResolver) SaveRepositoryEvaluation(_ context.Context, input model.RepositoryEvaluationInput) (*model.MutationResult, error) {
 	repositoryID := int(input.RepositoryID)
 
 	// 1. Save WebApp check
@@ -179,8 +179,13 @@ func (r *mutationResolver) SaveRepositoryEvaluation(ctx context.Context, input m
 
 	// 2. Save check results (only if isWebApp is true and checkResults are provided)
 	if input.IsWebApp && input.CheckResults != nil {
+		// Collect check item IDs that are being saved
+		checkItemIDs := make([]int, 0, len(input.CheckResults))
+
 		for _, checkResult := range input.CheckResults {
 			checkItemID := int(checkResult.CheckItemID)
+			checkItemIDs = append(checkItemIDs, checkItemID)
+
 			var memo *string
 			if checkResult.Memo != nil && strings.TrimSpace(*checkResult.Memo) != "" {
 				m := strings.TrimSpace(*checkResult.Memo)
@@ -193,6 +198,22 @@ func (r *mutationResolver) SaveRepositoryEvaluation(ctx context.Context, input m
 					Message: strPtr(fmt.Sprintf("チェック結果の保存に失敗しました: %v", err)),
 				}, nil
 			}
+		}
+
+		// Delete check results that are not in the submitted list
+		if err := r.DB.DeleteCheckResultsNotInList(repositoryID, checkItemIDs); err != nil {
+			return &model.MutationResult{
+				Success: false,
+				Message: strPtr(fmt.Sprintf("古いチェック結果の削除に失敗しました: %v", err)),
+			}, nil
+		}
+	} else if !input.IsWebApp {
+		// If not a web app, delete all check results for this repository
+		if err := r.DB.DeleteCheckResultsNotInList(repositoryID, []int{}); err != nil {
+			return &model.MutationResult{
+				Success: false,
+				Message: strPtr(fmt.Sprintf("チェック結果の削除に失敗しました: %v", err)),
+			}, nil
 		}
 	}
 

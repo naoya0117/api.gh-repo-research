@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type CheckQuery struct {
@@ -685,5 +687,19 @@ func (db *DB) UpdateCheckResult(id int, result bool, memo *string) error {
 func (db *DB) DeleteCheckResult(id int) error {
 	query := `DELETE FROM check_results WHERE id = $1`
 	_, err := db.Exec(query, id)
+	return err
+}
+
+// DeleteCheckResultsNotInList deletes check results for a repository that are not in the provided list
+func (db *DB) DeleteCheckResultsNotInList(repositoryID int, checkItemIDs []int) error {
+	if len(checkItemIDs) == 0 {
+		// If no check items provided, delete all check results for this repository
+		query := `DELETE FROM check_results WHERE repository_id = $1`
+		_, err := db.Exec(query, repositoryID)
+		return err
+	}
+
+	query := `DELETE FROM check_results WHERE repository_id = $1 AND check_item_id != ALL($2)`
+	_, err := db.Exec(query, repositoryID, pq.Array(checkItemIDs))
 	return err
 }
