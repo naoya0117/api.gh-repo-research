@@ -99,6 +99,7 @@ type Query {
   checkResults(repositoryId: Int): [CheckResult!]!
   repositories(limit: Int = 100, offset: Int = 0): [Repository!]!
   unevaluatedRepositoriesWithDockerfile(limit: Int = 50, offset: Int = 0): [Repository!]!
+  searchEvaluatedRepositories(query: String!, limit: Int = 50, offset: Int = 0): [Repository!]!
   repository(id: Int!): Repository
 }
 
